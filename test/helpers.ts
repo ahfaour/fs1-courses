@@ -9,6 +9,7 @@ import { migrate } from '../src/db/migrate.js';
 import { seed } from '../src/db/seed.js';
 import { hashPassword } from '../src/modules/auth/passwords.js';
 import { upsertAdmin } from '../src/modules/auth/queries.js';
+import { dbStorage } from '../src/modules/files/dbStorage.js';
 import { diskStorage } from '../src/modules/files/storage.js';
 
 export const ADMIN_EMAIL = 'admin@example.com';
@@ -27,7 +28,7 @@ async function freshDb(): Promise<DB> {
   });
   const db = await shared;
   await db.exec(
-    'TRUNCATE sessions, announcements, materials, files, courses, profile, admins RESTART IDENTITY CASCADE',
+    'TRUNCATE sessions, announcements, materials, files, file_blobs, courses, profile, admins RESTART IDENTITY CASCADE',
   );
   await seed(db);
   hash ??= hashPassword(ADMIN_PASSWORD);
@@ -36,7 +37,7 @@ async function freshDb(): Promise<DB> {
 }
 
 /** A fresh app on an in-memory, seeded database with one admin, and a temp uploads folder. */
-export async function makeApp(overrides: Partial<Config> = {}) {
+export async function makeApp(overrides: Partial<Config> = {}, opts: { dbFiles?: boolean } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fs1-test-'));
   const config: Config = {
     env: 'test',
@@ -51,7 +52,7 @@ export async function makeApp(overrides: Partial<Config> = {}) {
     ...overrides,
   };
   const db = await freshDb();
-  const storage = diskStorage(config.uploadDir);
+  const storage = opts.dbFiles ? dbStorage(db) : diskStorage(config.uploadDir);
   const app = createApp({ config, db, storage });
   const cleanup = () => {
     fs.rmSync(dir, { recursive: true, force: true });

@@ -1,7 +1,7 @@
 # Render Blueprint: New → Blueprint → pick this repository.
-# Render's free plan has no persistent disk, so data lives in Neon (Postgres) and an
-# S3-compatible bucket (Cloudflare R2 or Backblaze B2). Render asks for every `sync: false`
-# value when the Blueprint is created; none of them are stored in git.
+# Render's free plan has no persistent disk, so everything (including uploaded files) lives in
+# the Neon Postgres database, as in UMS. Render asks for DATABASE_URL when the Blueprint is
+# created; it is not stored in git.
 services:
   - type: web
     name: fs1-courses
@@ -21,15 +21,8 @@ services:
         value: '3'
       - key: SESSION_SECRET
         generateValue: true
+      # Files are stored in the database, so keep them small; share big files as links.
+      - key: MAX_UPLOAD_MB
+        value: '20'
       - key: DATABASE_URL
-        sync: false
-      - key: S3_BUCKET
-        sync: false
-      - key: S3_ENDPOINT
-        sync: false
-      - key: S3_REGION
-        sync: false
-      - key: S3_ACCESS_KEY_ID
-        sync: false
-      - key: S3_SECRET_ACCESS_KEY
         sync: false

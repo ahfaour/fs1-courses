@@ -4,8 +4,7 @@ import { openDb } from './db/connection.js';
 import { migrate } from './db/migrate.js';
 import { seed } from './db/seed.js';
 import { hasProfile } from './modules/profile/queries.js';
-import { diskStorage } from './modules/files/storage.js';
-import { s3Storage } from './modules/files/s3Storage.js';
+import { pickStorage } from './modules/files/pickStorage.js';
 
 loadDotEnv();
 const config = loadConfig();
@@ -19,11 +18,10 @@ if (!(await hasProfile(db))) {
   console.log(`Seeded ${r.courses} course(s).`);
 }
 
-const storage = config.s3 ? s3Storage(config.s3) : diskStorage(config.uploadDir);
+const { storage, where: files } = pickStorage(config, db);
 const app = createApp({ config, db, storage });
 const server = app.listen(config.port, () => {
   const where = config.databaseUrl ? 'Postgres' : `PGlite at ${config.pgliteDir}`;
-  const files = config.s3 ? `bucket ${config.s3.bucket}` : config.uploadDir;
   console.log(`FS1 Courses listening on http://localhost:${config.port} (${config.env})`);
   console.log(`Database: ${where}. Files: ${files}.`);
 });

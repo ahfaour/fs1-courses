@@ -126,3 +126,29 @@ describe('file serving', () => {
     await request(ctx.app).get('/files/missing0001/gone.pdf').expect(404);
   });
 });
+
+describe('files kept in the database (Render + Neon)', () => {
+  it('stores, serves and deletes an upload without touching the uploads folder', async () => {
+    ctx.cleanup();
+    ctx = await makeApp({}, { dbFiles: true });
+    ({ agent, csrf } = await signIn(ctx.app));
+
+    await upload(PDF, 'notes.pdf').expect(303);
+    const [m] = await listForCourse(ctx.db, 'os');
+    expect(fs.existsSync(`${ctx.config.uploadDir}/${m!.file_id}`)).toBe(false);
+    expect(await ctx.db.query('SELECT id FROM file_blobs')).toEqual([{ id: m!.file_id }]);
+
+    const res = await request(ctx.app).get(`/files/${m!.file_id}/notes.pdf`).expect(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(Buffer.compare(res.body as Buffer, PDF)).toBe(0);
+
+    const page = await agent.get(`/admin/materials/${m!.id}/delete`).expect(200);
+    expect(page.text).toContain('Delete');
+    await agent
+      .post(`/admin/materials/${m!.id}/delete`)
+      .type('form')
+      .send({ _csrf: csrf, confirmed: '1' })
+      .expect(303);
+    expect(await ctx.db.query('SELECT id FROM file_blobs')).toEqual([]);
+  });
+});

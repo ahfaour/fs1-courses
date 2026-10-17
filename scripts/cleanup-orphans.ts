@@ -16,8 +16,7 @@ import {
   deleteFileIfUnreferenced,
   unreferencedFilesBefore,
 } from '../src/modules/files/queries.js';
-import { s3Storage } from '../src/modules/files/s3Storage.js';
-import { diskStorage } from '../src/modules/files/storage.js';
+import { pickStorage } from '../src/modules/files/pickStorage.js';
 
 const { values } = parseArgs({ options: { 'dry-run': { type: 'boolean', default: false } } });
 const dry = values['dry-run'];
@@ -28,7 +27,7 @@ loadDotEnv();
 const config = loadConfig();
 const db = await openDb(config);
 await migrate(db);
-const storage = config.s3 ? s3Storage(config.s3) : diskStorage(config.uploadDir);
+const { storage } = pickStorage(config, db);
 const act = dry ? 'Would remove' : 'Removed';
 let count = 0;
 

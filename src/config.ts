@@ -116,10 +116,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     };
   }
   // Render's free plan wipes the local disk on every restart: refuse to lose data silently.
-  if (e.RENDER && (!e.DATABASE_URL || !s3)) {
-    throw new Error(
-      'On Render, set DATABASE_URL (Postgres) and the S3_* variables; the local disk is not kept.',
-    );
+  // With DATABASE_URL, uploads go to the database too (unless a bucket is configured).
+  if (e.RENDER && !e.DATABASE_URL) {
+    throw new Error('On Render, set DATABASE_URL (Postgres); the local disk is not kept.');
   }
   const resolve = (p: string) => (p === 'memory' ? p : path.resolve(ROOT, p));
   return {

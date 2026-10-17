@@ -14,8 +14,9 @@ Server-rendered Express 4 + TypeScript app on Postgres. Pages work without JavaS
 - **Database:** any Postgres via `DATABASE_URL` (Neon in production). Without it the app uses
   [PGlite](https://pglite.dev), an embedded Postgres stored in `data/pglite`, so nothing needs
   installing locally.
-- **Uploaded files:** an S3-compatible bucket (Cloudflare R2, Backblaze B2, AWS S3) when `S3_BUCKET`
-  is set, otherwise the local `data/uploads` folder.
+- **Uploaded files:** in the Postgres database (table `file_blobs`) when `DATABASE_URL` is set, so
+  Render + Neon need nothing else (like UMS); otherwise the local `data/uploads` folder. An
+  S3-compatible bucket can be used instead by setting `S3_BUCKET` (optional).
 
 ## Setup
 
@@ -54,7 +55,7 @@ On Windows PowerShell, if `npm` is blocked by the script execution policy, use `
 | `npm run backup`          | Copy every table (JSON) and every uploaded file into `backups/fs1-<date>/`. Keeps the newest 14. |
 | `npm run cleanup-orphans` | Delete stray stored files and unreferenced file rows older than 24 h. `-- --dry-run` to preview. |
 
-Every script uses the same settings as the app, so with `DATABASE_URL` and `S3_*` set it works on
+Every script uses the same settings as the app, so with `DATABASE_URL` set it works on
 the live site's data.
 
 ## Configuration
@@ -68,18 +69,18 @@ All settings come from environment variables (or `.env`, which is git-ignored).
 | `SESSION_SECRET`       | dev-only fallback | **At least 32 characters in production**, or the app refuses to start. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`. |
 | `DATABASE_URL`         | empty             | Postgres connection string, e.g. Neon's `postgresql://…?sslmode=require`. Empty = PGlite in `PGLITE_DIR`.                                                                  |
 | `PGLITE_DIR`           | `./data/pglite`   | Embedded database folder, used only without `DATABASE_URL`.                                                                                                                |
-| `S3_BUCKET`            | empty             | Bucket for uploads. Empty = local `UPLOAD_DIR`.                                                                                                                            |
+| `S3_BUCKET`            | empty             | Optional bucket for uploads. Empty = the database (with `DATABASE_URL`) or `UPLOAD_DIR`.                                                                                   |
 | `S3_ENDPOINT`          | empty             | R2: `https://<account-id>.r2.cloudflarestorage.com`. B2: `https://s3.<region>.backblazeb2.com`. Empty for AWS S3.                                                          |
 | `S3_REGION`            | `auto`            | `auto` for R2; the bucket's region for B2 and AWS.                                                                                                                         |
 | `S3_ACCESS_KEY_ID`     |                   | Required with `S3_BUCKET`.                                                                                                                                                 |
 | `S3_SECRET_ACCESS_KEY` |                   | Required with `S3_BUCKET`.                                                                                                                                                 |
 | `S3_PREFIX`            | `uploads/`        | Key prefix inside the bucket.                                                                                                                                              |
-| `UPLOAD_DIR`           | `./data/uploads`  | Local uploads folder, used only without `S3_BUCKET`.                                                                                                                       |
+| `UPLOAD_DIR`           | `./data/uploads`  | Local uploads folder, used only without `DATABASE_URL` and `S3_BUCKET`.                                                                                                    |
 | `MAX_UPLOAD_MB`        | `50`              | Larger files are refused with a message suggesting a link instead.                                                                                                         |
 | `TRUST_PROXY`          | `0`               | Number of reverse proxies in front of the app: `1` behind nginx/Caddy, `3` on Render. Needed for `Secure` cookies and the login rate limit.                                |
 
-On Render (where the `RENDER` variable is set) the app refuses to start without `DATABASE_URL` and
-`S3_BUCKET`, because the local disk is wiped on every restart and data would be lost silently.
+On Render (where the `RENDER` variable is set) the app refuses to start without `DATABASE_URL`,
+because the local disk is wiped on every restart and data would be lost silently.
 
 ## Project layout
 
@@ -89,7 +90,7 @@ src/
   db/            connection (pg / PGlite), migrate, seed, migrations/001_init.sql
   modules/       courses, materials, announcements, profile, files, auth
                  (each: routes.ts = HTTP, queries.ts = SQL, schema.ts = zod validation)
-                 files/storage.ts = local folder, files/s3Storage.ts = bucket
+                 files/storage.ts = local folder, dbStorage.ts = Postgres, s3Storage.ts = bucket
   views/         Nunjucks templates (auto-escaped); admin forms under views/admin
 public/          css/site.css, js/enhance.js
 scripts/         seed, create-admin, backup, cleanup-orphans
@@ -108,28 +109,23 @@ render.yaml      Render Blueprint
 - Templates auto-escape everything; descriptions and announcements are plain text with line breaks
   kept. No Markdown or HTML rendering.
 - Strict CSP (`script-src 'self'`, no inline scripts or styles) via helmet.
-- Uploads: extension allow-list **and** content sniffing (`file-type`); stored under random ids; the
-  bucket stays private and the app streams files through `/files/:id` with `nosniff`, `inline` only
+- Uploads: extension allow-list **and** content sniffing (`file-type`); stored under random ids and
+  never publicly addressable; the app streams files through `/files/:id` with `nosniff`, `inline` only
   for PDF and images, and an RFC 5987 filename so Arabic and French names survive. External links
   must be `http(s)://`.
 
 ## Deploying on Render (free)
 
 The free plan sleeps after 15 minutes without visitors (the next visit takes about a minute) and
-has no persistent disk, so the data lives in two free external services.
+has no persistent disk, so everything, uploaded files included, lives in a Neon Postgres
+database, the same setup as UMS.
 
 1. **Database: Neon.** At <https://neon.tech> create a project (region: Frankfurt / `eu-central-1`).
    Copy the connection string (`postgresql://…?sslmode=require`).
-2. **Files: Cloudflare R2** (10 GB free). In the Cloudflare dashboard → R2 → create a bucket, e.g.
-   `fs1-courses`. Then R2 → **Manage API tokens** → create a token with _Object Read & Write_ on
-   that bucket. Note the access key id, the secret and the S3 endpoint
-   `https://<account-id>.r2.cloudflarestorage.com`. Keep the bucket private. (Backblaze B2 works
-   the same way: create a private bucket and an application key.)
-3. **Render.** At <https://dashboard.render.com> → **New → Blueprint** → connect this GitHub
-   repository. Render reads `render.yaml` and asks for `DATABASE_URL`, `S3_BUCKET`, `S3_ENDPOINT`,
-   `S3_REGION` (`auto` for R2), `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`. `SESSION_SECRET`
-   is generated by Render. The first deploy creates the tables and the starter courses.
-4. **First admin.** Render's free plan has no shell, so run this on your own computer against the
+2. **Render.** At <https://dashboard.render.com> → **New → Blueprint** → connect this GitHub
+   repository. Render reads `render.yaml` and asks only for `DATABASE_URL`. `SESSION_SECRET` is
+   generated by Render. The first deploy creates the tables and the starter courses.
+3. **First admin.** Render's free plan has no shell, so run this on your own computer against the
    Neon database (PowerShell):
 
    ```powershell
@@ -138,10 +134,14 @@ has no persistent disk, so the data lives in two free external services.
    Remove-Item Env:DATABASE_URL
    ```
 
-5. Open `https://<service>.onrender.com/admin/login`, sign in and fill in your profile. A custom
+4. Open `https://<service>.onrender.com/admin/login`, sign in and fill in your profile. A custom
    domain can be added later under the service's **Settings → Custom Domains**.
 
 Every push to `main` redeploys automatically.
+
+**Space.** Neon's free plan has limited storage (about 0.5 GB per project at the time of writing;
+check Neon's pricing page). Files count against it, so `render.yaml` caps uploads at 20 MB. Share
+large files (videos, big datasets) as Google Drive or GitHub links instead. If space runs out, the app can use an S3-compatible bucket instead (the `S3_*` variables), but the files already uploaded must be copied into it first.
 
 ### Other hosts and Docker
 
@@ -157,13 +157,13 @@ docker run -d --name fs1 -p 3000:3000 -v fs1-data:/app/data \
 docker exec -it fs1 node dist/scripts/create-admin.js --email you@example.com
 ```
 
-Without `DATABASE_URL` / `S3_BUCKET` the container keeps its database and uploads in the
+Without `DATABASE_URL` the container keeps its database and uploads in the
 `/app/data` volume.
 
 ## Backups
 
 `npm run backup` writes `backups/fs1-<date>/db.json` (every table) and `files/` (every upload),
-keeping the newest 14. Run it on your computer with the live `DATABASE_URL` and `S3_*` values set
+keeping the newest 14. Run it on your computer with the live `DATABASE_URL` set
 to back up the production site. Neon also keeps a short restore history of its own.
 
 Run `npm run cleanup-orphans` now and then to remove files left behind by failed deletes.

@@ -11,8 +11,7 @@ import { pipeline } from 'node:stream/promises';
 import { parseArgs } from 'node:util';
 import { ROOT, loadConfig, loadDotEnv } from '../src/config.js';
 import { openDb } from '../src/db/connection.js';
-import { s3Storage } from '../src/modules/files/s3Storage.js';
-import { diskStorage } from '../src/modules/files/storage.js';
+import { pickStorage } from '../src/modules/files/pickStorage.js';
 
 const TABLES = ['profile', 'courses', 'files', 'materials', 'announcements', 'admins'];
 const KEEP = 14;
@@ -25,7 +24,7 @@ const dir = path.join(outRoot, `fs1-${stamp}`);
 loadDotEnv();
 const config = loadConfig();
 const db = await openDb(config);
-const storage = config.s3 ? s3Storage(config.s3) : diskStorage(config.uploadDir);
+const { storage } = pickStorage(config, db);
 
 await fsp.mkdir(path.join(dir, 'files'), { recursive: true });
 const dump: Record<string, unknown[]> = {};
