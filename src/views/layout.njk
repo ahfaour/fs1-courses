@@ -1,0 +1,19 @@
+{% extends "base.njk" %}
+{% block body %}
+{% from "partials/macros.njk" import navItem %}
+<div class="wrap layout">
+  <nav class="index" aria-label="Courses">
+    <span class="label">Index</span>
+    <a href="/" class="cc-ink"{% if currentPage == "home" %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span><span>Overview<small>{{ courseTotal }} course{{ "" if courseTotal == 1 else "s" }} &amp; programs</small></span></a>
+    <div class="sep"></div>
+    {% for c in navCourses %}{{ navItem(c, currentCourseId) }}{% endfor %}
+    {% if navPrograms.length %}
+    <div class="sep"></div>
+    <span class="label">Programs</span>
+    {% for c in navPrograms %}{{ navItem(c, currentCourseId) }}{% endfor %}
+    {% endif %}
+    {% if isAdmin %}<a class="btn ghost add-course" href="/admin/courses/new" data-dialog>+ Add course</a>{% endif %}
+  </nav>
+  <main id="main" tabindex="-1">{% block main %}{% endblock %}</main>
+</div>
+{% endblock %}

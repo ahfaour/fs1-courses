@@ -1,0 +1,53 @@
+{% set siteName = profile.name or "Computer Science Courses" %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>{% if pageTitle %}{{ pageTitle }} · {% endif %}FS1 Computer Science Courses</title>
+<meta name="description" content="{{ profile.intro | truncate(160) }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/css/site.css">
+<script src="/js/enhance.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+{% if isAdmin %}
+<div class="editbar"><div class="wrap">
+  <span class="status" role="status">
+    {% if flash and not formPage %}<strong class="flash-{{ flash.type }}">{{ flash.message }}</strong>
+    {% else %}Signed in as {{ adminEmail }}. Saved changes are live immediately.{% endif %}
+  </span>
+  <span class="editbar-actions">
+    <a class="btn" href="/admin/profile" data-dialog>Edit name &amp; contact</a>
+    <a class="btn" href="/admin/announcements/new" data-dialog>+ Announcement</a>
+    <form method="post" action="/admin/logout" class="inline">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      <button class="btn" type="submit">Sign out</button>
+    </form>
+  </span>
+</div></div>
+{% endif %}
+<header class="top"><div class="wrap">
+  <div class="who">
+    {% if profile.affiliation %}<span class="label">{{ profile.affiliation }}</span>{% endif %}
+    {% set nameTag = "h1" if currentPage == "home" else "p" %}
+    <{{ nameTag }} class="h1"><a href="/">{{ siteName }}</a></{{ nameTag }}>
+    {% if profile.title %}<p class="role">{{ profile.title }}</p>{% endif %}
+  </div>
+  {% if profile.email or profile.office_hours %}
+  <div class="contact">
+    {% if profile.email %}<div class="row"><span class="label">Email</span><span class="mono" id="em">{{ profile.email }}</span><button class="btn small" type="button" data-copy="#em" hidden>Copy</button></div>{% endif %}
+    {% if profile.office_hours %}<div class="row"><span class="label">Office hours</span><span>{{ profile.office_hours }}</span></div>{% endif %}
+  </div>
+  {% endif %}
+</div></header>
+{% block body %}{% endblock %}
+<footer><div class="wrap mono">
+  <span>{{ profile.affiliation or "FS1 Computer Science" }}</span>
+  <span>Updated {{ (lastUpdated | date) or "—" }}{% if not isAdmin %} · <a href="/admin/login">Instructor sign-in</a>{% endif %}</span>
+</div></footer>
+</body>
+</html>

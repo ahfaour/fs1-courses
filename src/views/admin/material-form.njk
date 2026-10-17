@@ -1,0 +1,21 @@
+{% extends "formpage.njk" %}
+{% block form %}
+{% from "partials/macros.njk" import field, select, formError %}
+<h1 class="form-h">{{ title }}</h1>
+<form method="post" action="{{ action }}" enctype="multipart/form-data">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  {{ field("title", "Title", v, placeholder="e.g. Chapter 3 – CPU scheduling", required=true, maxlength=200) }}
+  <div class="two">
+    {{ select("section", "Section", v, sectionOptions) }}
+    {{ field("material_date", "Date", v, type="date") }}
+  </div>
+  {{ field("note", "Note for students (optional)", v, placeholder="e.g. Due 30 Oct, submit on Moodle", maxlength=500) }}
+  <label for="f-file">Upload a file
+    <input id="f-file" name="file" type="file" data-max-mb="{{ maxUploadMb }}" accept="{{ accept }}" aria-describedby="h-file">
+    <span class="hint" id="h-file">{% if currentFile %}Current file: {{ currentFile }}. Choose a new one to replace it.{% else %}PDF, slides, notebooks, code… up to {{ maxUploadMb }} MB. Or paste a link below.{% endif %}</span>
+  </label>
+  {{ field("url", "Or a link", v, type="url", placeholder="https://drive.google.com/…", hint=urlHint, maxlength=2000) }}
+  {{ formError(flash) }}
+  <div class="actions"><a class="btn" href="/courses/{{ course.id }}" data-close>Cancel</a><button class="btn primary" type="submit">Save</button></div>
+</form>
+{% endblock %}

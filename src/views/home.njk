@@ -1,0 +1,43 @@
+{% extends "layout.njk" %}
+{% block main %}
+{% from "partials/macros.njk" import searchForm, results, deleteForm %}
+{% if profile.intro %}<p class="intro">{{ profile.intro }}</p>{% endif %}
+{{ searchForm("") }}
+{{ results("", [], isAdmin) }}
+<div id="home-sections">
+  <section aria-labelledby="ann-h">
+    <h2 class="sec" id="ann-h">Announcements{% if isAdmin %} <a class="btn small" href="/admin/announcements/new" data-dialog>+ Add announcement</a>{% endif %}</h2>
+    {% if announcements.length %}
+    <ul class="ann">
+      {% for a in announcements %}
+      <li{% if a.course_id %} class="cc{{ a.color_index }}"{% endif %}>
+        <span class="when mono">{{ a.posted_on | date }}</span>
+        <span class="body">{% if a.course_id %}<a class="tag" href="/courses/{{ a.course_id }}">{{ a.course_name }}</a>{% endif %}<span class="text">{{ a.body }}</span></span>
+        <span>{% if isAdmin %}{{ deleteForm("/admin/announcements/" + a.id + "/delete", "Delete", csrfToken, "announcement") }}{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No announcements right now.</p>
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="courses-h">
+    <h2 class="sec" id="courses-h">Courses{% if isAdmin %} <a class="btn small" href="/admin/courses/new" data-dialog>+ Add course</a>{% endif %}</h2>
+    {% if courses.length %}
+    <div class="grid">
+      {% for c in courses %}
+      <a class="card cc{{ c.color_index }}" href="/courses/{{ c.id }}">
+        <span class="label">{{ "Program" if c.kind == "program" else "Course" }}{% if c.level %} · {{ c.level }}{% endif %}{% if c.code %} · {{ c.code }}{% endif %}</span>
+        <h3>{{ c.name }}</h3>
+        {% if c.description %}<p>{{ c.description }}</p>{% endif %}
+        <span class="foot mono"><span>{% if c.material_count %}{{ c.material_count }} item{{ "" if c.material_count == 1 else "s" }}{% else %}No materials yet{% endif %}</span><span>{{ c.last_material_date | date }}</span></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">No courses yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

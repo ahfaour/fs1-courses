@@ -1,0 +1,18 @@
+{% extends "formpage.njk" %}
+{% block form %}
+{% from "partials/macros.njk" import field, area, formError %}
+<h1 class="form-h">Name &amp; contact</h1>
+<form method="post" action="/admin/profile">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  {{ field("name", "Your name as students should see it", v, placeholder="e.g. Dr. …", maxlength=120) }}
+  {{ field("title", "Title line", v, maxlength=200) }}
+  {{ field("affiliation", "Affiliation", v, maxlength=200) }}
+  {{ area("intro", "Welcome text", v, maxlength=2000) }}
+  <div class="two">
+    {{ field("email", "Contact email", v, type="email", hint="Shown publicly on the page.", maxlength=200) }}
+    {{ field("office_hours", "Office hours", v, placeholder="e.g. Tue 10:00–12:00, Bloc A", maxlength=200) }}
+  </div>
+  {{ formError(flash) }}
+  <div class="actions"><a class="btn" href="/admin" data-close>Cancel</a><button class="btn primary" type="submit">Save</button></div>
+</form>
+{% endblock %}

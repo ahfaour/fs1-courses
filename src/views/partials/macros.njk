@@ -1,0 +1,81 @@
+{% macro navItem(c, currentCourseId) %}
+<a href="/courses/{{ c.id }}" class="cc{{ c.color_index }}"{% if c.id == currentCourseId %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span><span>{{ c.name }}<small>{{ c.material_count }} item{{ "" if c.material_count == 1 else "s" }}{% if c.code %} · {{ c.code }}{% endif %}</small></span></a>
+{% endmacro %}
+
+{# A material row: date, (course), title + type badge, note, Open, and admin Edit/Delete. #}
+{% macro matRow(m, opts) %}
+<li class="cc{{ opts.color }}" id="m-{{ m.id }}">
+  <span class="d mono">{{ m.material_date | date }}</span>
+  <div class="body">
+    {% if opts.showCourse %}<a class="result-course" href="/courses/{{ m.course_id }}">{{ m.course_name }}</a>{% endif %}
+    <div class="t">{{ m.title }}<span class="src">{{ m | badge }}</span></div>
+    {% if m.note %}<div class="n">{{ m.note }}</div>{% endif %}
+  </div>
+  <span class="act">
+    <a class="btn small" href="{{ m | href }}"{% if m | newTab %} target="_blank" rel="noopener noreferrer"{% endif %}>Open<span class="sr-only">: {{ m.title }}</span></a>
+    {% if opts.isAdmin and not opts.showCourse %}
+    <a class="btn small ghost" href="/admin/materials/{{ m.id }}/edit" data-dialog>Edit<span class="sr-only">: {{ m.title }}</span></a>
+    {{ deleteForm("/admin/materials/" + m.id + "/delete", "Delete", opts.csrfToken, m.title) }}
+    {% endif %}
+  </span>
+</li>
+{% endmacro %}
+
+{# POST delete with a confirmation step: two clicks with JS, a confirm page without. #}
+{% macro deleteForm(action, label, csrfToken, what) %}
+<form method="post" action="{{ action }}" class="inline" data-confirm>
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  <input type="hidden" name="confirmed" value="">
+  <button class="btn small ghost danger" type="submit">{{ label }}{% if what %}<span class="sr-only">: {{ what }}</span>{% endif %}</button>
+</form>
+{% endmacro %}
+
+{% macro searchForm(q) %}
+<form class="search" action="/search" method="get" role="search">
+  <label class="label" for="q">Search</label>
+  <input id="q" name="q" type="search" placeholder="Find slides, labs, exams…" value="{{ q }}" maxlength="100" autocomplete="off" data-live-search>
+  <button class="btn small" type="submit">Search</button>
+</form>
+{% endmacro %}
+
+{% macro results(q, hits, isAdmin) %}
+<div id="results" aria-live="polite">
+{% if q %}
+  {% if hits.length %}
+  <p class="label results-count">{{ hits.length }} result{{ "" if hits.length == 1 else "s" }}</p>
+  <ul class="mats">
+    {% for m in hits %}{{ matRow(m, { color: m.color_index, showCourse: true, isAdmin: isAdmin }) }}{% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">Nothing matches “{{ q }}”.</p>
+  {% endif %}
+{% endif %}
+</div>
+{% endmacro %}
+
+{# Form controls. `v` holds current values. #}
+{% macro field(name, label, v, type="text", hint="", placeholder="", required=false, maxlength=0) %}
+<label for="f-{{ name }}">{{ label }}
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ v[name] }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if hint %} aria-describedby="h-{{ name }}"{% endif %}>
+  {% if hint %}<span class="hint" id="h-{{ name }}">{{ hint }}</span>{% endif %}
+</label>
+{% endmacro %}
+
+{% macro area(name, label, v, hint="", placeholder="", maxlength=0) %}
+<label for="f-{{ name }}">{{ label }}
+  <textarea id="f-{{ name }}" name="{{ name }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if hint %} aria-describedby="h-{{ name }}"{% endif %}>{{ v[name] }}</textarea>
+  {% if hint %}<span class="hint" id="h-{{ name }}">{{ hint }}</span>{% endif %}
+</label>
+{% endmacro %}
+
+{% macro select(name, label, v, options) %}
+<label for="f-{{ name }}">{{ label }}
+  <select id="f-{{ name }}" name="{{ name }}">
+    {% for o in options %}<option value="{{ o[0] }}"{% if sameValue(v[name], o[0]) %} selected{% endif %}>{{ o[1] }}</option>{% endfor %}
+  </select>
+</label>
+{% endmacro %}
+
+{% macro formError(flash) %}
+{% if flash and flash.type == "error" %}<p class="err" role="alert">{{ flash.message }}</p>{% endif %}
+{% endmacro %}

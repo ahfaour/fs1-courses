@@ -1,0 +1,46 @@
+{% extends "layout.njk" %}
+{% block main %}
+{% from "partials/macros.njk" import matRow, deleteForm %}
+{% set noun = "program" if course.kind == "program" else "course" %}
+<article class="cc{{ course.color_index }}">
+  <div class="chead">
+    <div class="meta">
+      {% if course.code %}<span class="code mono">{{ course.code }}</span>{% endif %}
+      {% if course.level %}<span class="mono">{{ course.level }}</span>{% endif %}
+      {% if course.semester %}<span class="mono">{{ course.semester }}</span>{% endif %}
+      <span class="mono">{{ "Program" if course.kind == "program" else "Course" }}</span>
+    </div>
+    <h1>{{ course.name }}</h1>
+    {% if course.description %}<p class="desc">{{ course.description }}</p>{% endif %}
+    {% if course.topics.length %}
+    <ul class="topics" aria-label="Topics">{% for t in course.topics %}<li>{{ t }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if isAdmin %}
+    <div class="tools">
+      <a class="btn small" href="/admin/courses/{{ course.id }}/edit" data-dialog>Edit course details</a>
+      <a class="btn small" href="/admin/announcements/new?course={{ course.id }}" data-dialog>+ Announcement</a>
+      {{ deleteForm("/admin/courses/" + course.id + "/delete", "Delete course", csrfToken) }}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if materialCount == 0 and not isAdmin %}
+  <p class="empty">Materials for this {{ noun }} will be posted here.</p>
+  {% else %}
+  {% for g in groups %}
+  {% if g.items.length or isAdmin %}
+  <section class="cat" id="sec-{{ g.key }}" aria-labelledby="h-{{ g.key }}">
+    <h2 id="h-{{ g.key }}">{{ g.label }}{% if g.fr %}<span class="fr">{{ g.fr }}</span>{% endif %}{% if isAdmin %}<a class="btn small" href="/admin/courses/{{ course.id }}/materials/new?section={{ g.key }}" data-dialog>+ Add<span class="sr-only"> to {{ g.label }}</span></a>{% endif %}</h2>
+    {% if g.items.length %}
+    <ul class="mats">
+      {% for m in g.items %}{{ matRow(m, { color: course.color_index, showCourse: false, isAdmin: isAdmin, csrfToken: csrfToken }) }}{% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Nothing here yet.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+</article>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "formpage.njk" %}
+{% block form %}
+{% from "partials/macros.njk" import field, area, select, formError %}
+<h1 class="form-h">New announcement</h1>
+<form method="post" action="/admin/announcements">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  {{ area("body", "Announcement", v, placeholder="e.g. OS midterm moved to Monday 3 Nov, 9:00, Amphi B.", maxlength=1000) }}
+  <div class="two">
+    {{ select("course_id", "Course", v, courseOptions) }}
+    {{ field("posted_on", "Date", v, type="date") }}
+  </div>
+  {{ formError(flash) }}
+  <div class="actions"><a class="btn" href="/admin" data-close>Cancel</a><button class="btn primary" type="submit">Post</button></div>
+</form>
+{% endblock %}

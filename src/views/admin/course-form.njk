@@ -1,0 +1,25 @@
+{% extends "formpage.njk" %}
+{% block form %}
+{% from "partials/macros.njk" import field, area, select, formError %}
+<h1 class="form-h">{{ title }}</h1>
+<form method="post" action="{{ action }}">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  {{ field("name", "Name", v, required=true, maxlength=120) }}
+  <div class="two">
+    {{ field("code", "Course code", v, maxlength=40) }}
+    {{ field("level", "Level", v, placeholder="L3, M1, M2…", maxlength=40) }}
+  </div>
+  <div class="two">
+    {{ field("semester", "Semester", v, placeholder="Fall 2026–27", maxlength=40) }}
+    {{ select("kind", "Type", v, [["course", "Course"], ["program", "Program"]]) }}
+  </div>
+  <div class="two">
+    {{ select("color_index", "Colour", v, colorOptions) }}
+    {{ field("sort_order", "Position in the list", v, type="number", hint="Lower numbers come first.") }}
+  </div>
+  {{ area("description", "Short description", v, maxlength=2000) }}
+  {{ area("topics", "Topics", v, hint="One per line, up to 30.") }}
+  {{ formError(flash) }}
+  <div class="actions"><a class="btn" href="{{ cancel }}" data-close>Cancel</a><button class="btn primary" type="submit">Save</button></div>
+</form>
+{% endblock %}

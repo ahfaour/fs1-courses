@@ -1,0 +1,15 @@
+{% extends "formpage.njk" %}
+{% block form %}
+<h1 class="form-h">Instructor sign-in</h1>
+<form method="post" action="/admin/login">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  <label for="f-email">Email
+    <input id="f-email" name="email" type="email" value="{{ email }}" autocomplete="username" required maxlength="200">
+  </label>
+  <label for="f-password">Password
+    <input id="f-password" name="password" type="password" autocomplete="current-password" required maxlength="1000">
+  </label>
+  {% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
+  <div class="actions"><a class="btn" href="/">Cancel</a><button class="btn primary" type="submit">Sign in</button></div>
+</form>
+{% endblock %}

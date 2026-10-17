@@ -1,0 +1,10 @@
+{% extends "fragment.njk" if partial else "layout.njk" %}
+{% block main %}
+{% from "partials/macros.njk" import searchForm, results %}
+{% if not partial %}
+<h1 class="page-h">Search</h1>
+{{ searchForm(q) }}
+{% endif %}
+{{ results(q, hits, isAdmin) }}
+{% if not partial and not q %}<p class="empty">Type a word to search every course’s slides, labs and exams.</p>{% endif %}
+{% endblock %}

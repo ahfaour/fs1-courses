@@ -1,0 +1,10 @@
+{% extends "formpage.njk" %}
+{% block form %}
+<h1 class="form-h">{{ heading }}</h1>
+<p class="confirm-msg">{{ message }}</p>
+<form method="post" action="{{ action }}">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  <input type="hidden" name="confirmed" value="1">
+  <div class="actions"><a class="btn" href="{{ cancel }}" data-close>Cancel</a><button class="btn danger-fill" type="submit">{{ label }}</button></div>
+</form>
+{% endblock %}
