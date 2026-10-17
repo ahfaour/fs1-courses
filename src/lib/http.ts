@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import type { Flash } from '../types.js';
 
 export function setFlash(req: Request, flash: Flash): void {
@@ -52,3 +52,10 @@ export function renderError(res: Response, status: number, heading: string, mess
       } else res.send(html);
     });
 }
+
+/** Express 4 does not catch rejected promises: forward them to the error handler. */
+export const ah =
+  (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
+  (req: Request, res: Response, next: NextFunction): void => {
+    fn(req, res, next).catch(next);
+  };

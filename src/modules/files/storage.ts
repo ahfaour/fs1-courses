@@ -5,7 +5,7 @@ import type { Readable } from 'node:stream';
 import { FILE_ID_RE } from '../../lib/ids.js';
 
 /**
- * Where uploaded bytes live. Only disk for now; an S3 version would implement the same interface.
+ * Where uploaded bytes live: a local folder (below) or an S3-compatible bucket (s3Storage.ts).
  * Every method takes a validated random id, never a user-supplied path.
  */
 export interface FileStorage {

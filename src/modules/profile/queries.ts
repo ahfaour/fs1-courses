@@ -1,4 +1,4 @@
-import { nowIso, stmt, type DB } from '../../db/connection.js';
+import { nowIso, one, type Queryable } from '../../db/connection.js';
 
 export interface Profile {
   name: string;
@@ -20,21 +20,25 @@ const EMPTY: Profile = {
   updated_at: '',
 };
 
-export function getProfile(db: DB): Profile {
-  const row = stmt(
+export async function getProfile(db: Queryable): Promise<Profile> {
+  const row = await one<Profile>(
     db,
     'SELECT name, title, affiliation, intro, email, office_hours, updated_at FROM profile WHERE id = 1',
-  ).get() as Profile | undefined;
+  );
   return row ?? EMPTY;
 }
 
-export function saveProfile(db: DB, p: Omit<Profile, 'updated_at'>): void {
-  stmt(
-    db,
+export async function hasProfile(db: Queryable): Promise<boolean> {
+  return !!(await one(db, 'SELECT 1 FROM profile WHERE id = 1'));
+}
+
+export async function saveProfile(db: Queryable, p: Omit<Profile, 'updated_at'>): Promise<void> {
+  await db.run(
     `INSERT INTO profile (id, name, title, affiliation, intro, email, office_hours, updated_at)
-     VALUES (1, @name, @title, @affiliation, @intro, @email, @office_hours, @updated_at)
-     ON CONFLICT(id) DO UPDATE SET name = excluded.name, title = excluded.title,
+     VALUES (1, $1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (id) DO UPDATE SET name = excluded.name, title = excluded.title,
        affiliation = excluded.affiliation, intro = excluded.intro, email = excluded.email,
        office_hours = excluded.office_hours, updated_at = excluded.updated_at`,
-  ).run({ ...p, updated_at: nowIso() });
+    [p.name, p.title, p.affiliation, p.intro, p.email, p.office_hours, nowIso()],
+  );
 }

@@ -88,7 +88,26 @@ describe('config', () => {
   });
   it('parses TRUST_PROXY and MAX_UPLOAD_MB', () => {
     const c = loadConfig({ TRUST_PROXY: 'true', MAX_UPLOAD_MB: '20' });
-    expect(c.trustProxy).toBe(true);
+    expect(c.trustProxy).toBe(1);
     expect(c.maxUploadMb).toBe(20);
+    expect(loadConfig({ TRUST_PROXY: '3' }).trustProxy).toBe(3);
+    expect(loadConfig({ TRUST_PROXY: 'false' }).trustProxy).toBe(0);
+    expect(() => loadConfig({ TRUST_PROXY: 'maybe' })).toThrow(/TRUST_PROXY/);
+  });
+  it('uses Postgres and S3 only when configured', () => {
+    const local = loadConfig({});
+    expect(local.databaseUrl).toBeNull();
+    expect(local.s3).toBeNull();
+    const s3 = loadConfig({
+      S3_BUCKET: 'b',
+      S3_ENDPOINT: 'https://x.r2.cloudflarestorage.com',
+      S3_ACCESS_KEY_ID: 'k',
+      S3_SECRET_ACCESS_KEY: 's',
+    });
+    expect(s3.s3).toMatchObject({ bucket: 'b', region: 'auto', prefix: 'uploads/' });
+    expect(() => loadConfig({ S3_BUCKET: 'b' })).toThrow(/S3_ACCESS_KEY_ID/);
+  });
+  it('refuses to run on Render without an external database and bucket', () => {
+    expect(() => loadConfig({ RENDER: 'true' })).toThrow(/DATABASE_URL/);
   });
 });

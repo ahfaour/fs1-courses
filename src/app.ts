@@ -5,12 +5,12 @@ import nunjucks from 'nunjucks';
 import { PUBLIC_DIR, VIEWS_DIR } from './config.js';
 import type { AppDeps } from './deps.js';
 import { formatDate, isHttpUrl, typeBadge } from './lib/format.js';
-import { renderError } from './lib/http.js';
+import { ah, renderError } from './lib/http.js';
 import { announcementsAdminRouter } from './modules/announcements/routes.js';
 import { csrfForForms, csrfToken } from './modules/auth/csrf.js';
 import { requireAdmin } from './modules/auth/requireAdmin.js';
 import { SESSION_COOKIE, loginRouter, logoutRouter } from './modules/auth/routes.js';
-import { SqliteSessionStore } from './modules/auth/sessionStore.js';
+import { DbSessionStore } from './modules/auth/sessionStore.js';
 import { coursesAdminRouter, coursesPublicRouter } from './modules/courses/routes.js';
 import { lastUpdated, listCourses } from './modules/courses/queries.js';
 import { filesRouter } from './modules/files/routes.js';
@@ -50,7 +50,8 @@ export function createApp(deps: AppDeps): express.Express {
   const { config, db } = deps;
   const app = express();
   app.disable('x-powered-by');
-  if (config.trustProxy) app.set('trust proxy', 1);
+  // Render: Cloudflare → Render edge → app, so TRUST_PROXY=3 makes req.ip the visitor's address.
+  if (config.trustProxy) app.set('trust proxy', config.trustProxy);
   configureViews(app, config.env !== 'production');
 
   app.use(
@@ -72,10 +73,13 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
-  app.get('/healthz', (_req, res) => {
-    db.prepare('SELECT 1').get();
-    res.type('text/plain').send('ok');
-  });
+  app.get(
+    '/healthz',
+    ah(async (_req, res) => {
+      await db.query('SELECT 1');
+      res.type('text/plain').send('ok');
+    }),
+  );
 
   app.use(
     express.static(PUBLIC_DIR, { index: false, maxAge: config.env === 'production' ? '1d' : 0 }),
@@ -85,11 +89,11 @@ export function createApp(deps: AppDeps): express.Express {
     session({
       name: SESSION_COOKIE,
       secret: config.sessionSecret,
-      store: new SqliteSessionStore(db),
+      store: new DbSessionStore(db),
       resave: false,
       saveUninitialized: false,
       rolling: true, // idle timeout: every request pushes expiry 8 h out
-      proxy: config.trustProxy,
+      proxy: config.trustProxy > 0,
       cookie: {
         httpOnly: true,
         secure: config.env === 'production',
@@ -103,7 +107,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.use('/files', filesRouter(deps));
 
   // Page chrome every template needs: profile, course index, admin state, one-time flash.
-  const chrome: RequestHandler = (req, res, next) => {
+  const chrome: RequestHandler = ah(async (req, res, next) => {
     const isAdmin = !!req.session.adminId;
     res.locals.isAdmin = isAdmin;
     if (isAdmin) {
@@ -115,14 +119,18 @@ export function createApp(deps: AppDeps): express.Express {
       res.locals.flash = req.session.flash;
       delete req.session.flash;
     }
-    const courses = listCourses(db);
+    const [courses, profile, updated] = await Promise.all([
+      listCourses(db),
+      getProfile(db),
+      lastUpdated(db),
+    ]);
     res.locals.navCourses = courses.filter((c) => c.kind === 'course');
     res.locals.navPrograms = courses.filter((c) => c.kind === 'program');
     res.locals.courseTotal = courses.length;
-    res.locals.profile = getProfile(db);
-    res.locals.lastUpdated = lastUpdated(db);
+    res.locals.profile = profile;
+    res.locals.lastUpdated = updated;
     next();
-  };
+  });
   app.use(chrome);
 
   app.use(coursesPublicRouter(deps));

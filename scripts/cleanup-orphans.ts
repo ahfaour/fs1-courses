@@ -1,6 +1,6 @@
 /**
  * Removes, when older than 24 h:
- *   - files on disk that have no `files` row (e.g. a disk delete that ran before a failed commit),
+ *   - stored files that have no `files` row (e.g. a disk delete that ran before a failed commit),
  *   - `files` rows that no material references, and their bytes,
  *   - leftover temp uploads.
  *   npm run cleanup-orphans [-- --dry-run]
@@ -16,6 +16,7 @@ import {
   deleteFileIfUnreferenced,
   unreferencedFilesBefore,
 } from '../src/modules/files/queries.js';
+import { s3Storage } from '../src/modules/files/s3Storage.js';
 import { diskStorage } from '../src/modules/files/storage.js';
 
 const { values } = parseArgs({ options: { 'dry-run': { type: 'boolean', default: false } } });
@@ -25,26 +26,26 @@ const cutoff = Date.now() - DAY;
 
 loadDotEnv();
 const config = loadConfig();
-const db = openDb(config.databasePath);
-migrate(db);
-const storage = diskStorage(config.uploadDir);
+const db = await openDb(config);
+await migrate(db);
+const storage = config.s3 ? s3Storage(config.s3) : diskStorage(config.uploadDir);
 const act = dry ? 'Would remove' : 'Removed';
 let count = 0;
 
 // 1. files rows nobody references
-for (const id of unreferencedFilesBefore(db, new Date(cutoff).toISOString())) {
-  if (!dry && !deleteFileIfUnreferenced(db, id)) continue;
+for (const id of await unreferencedFilesBefore(db, new Date(cutoff).toISOString())) {
+  if (!dry && !(await deleteFileIfUnreferenced(db, id))) continue;
   if (!dry) await storage.remove(id);
   console.log(`${act} unreferenced file ${id}`);
   count++;
 }
 
-// 2. bytes on disk with no files row
-const known = allFileIds(db);
+// 2. stored bytes with no files row
+const known = await allFileIds(db);
 for (const f of await storage.list()) {
   if (known.has(f.id) || f.mtimeMs > cutoff) continue;
   if (!dry) await storage.remove(f.id);
-  console.log(`${act} orphan on disk ${f.id}`);
+  console.log(`${act} orphan in storage ${f.id}`);
   count++;
 }
 
@@ -59,4 +60,4 @@ for (const name of await fs.readdir(storage.tempDir)) {
 }
 
 console.log(count ? `${count} item(s) ${dry ? 'to clean' : 'cleaned'}.` : 'Nothing to clean.');
-db.close();
+await db.close();

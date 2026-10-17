@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
+import type { Queryable } from '../../db/connection.js';
 import type { AppDeps } from '../../deps.js';
 import { todayIso } from '../../lib/format.js';
-import { back, done, renderError } from '../../lib/http.js';
+import { ah, back, done, renderError } from '../../lib/http.js';
 import { randomId } from '../../lib/ids.js';
 import { firstError, formValues } from '../../lib/validation.js';
 import { verifyCsrf } from '../auth/csrf.js';
@@ -91,12 +92,16 @@ export function materialsAdminRouter(deps: AppDeps): Router {
   }
 
   /** Runs the DB write; on failure removes the file that was just stored and shows an error. */
-  async function commit(res: Response, file: NewFile | null, write: () => void): Promise<boolean> {
+  async function commit(
+    res: Response,
+    file: NewFile | null,
+    write: (q: Queryable) => Promise<void>,
+  ): Promise<boolean> {
     try {
-      db.transaction(() => {
-        if (file) insertFile(db, file);
-        write();
-      })();
+      await db.tx(async (q) => {
+        if (file) await insertFile(q, file);
+        await write(q);
+      });
       return true;
     } catch (err) {
       console.error('Saving the material failed:', err);
@@ -106,104 +111,130 @@ export function materialsAdminRouter(deps: AppDeps): Router {
     }
   }
 
-  router.get('/courses/:id/materials/new', (req, res) => {
-    const course = getCourse(db, req.params.id);
-    if (!course) return renderError(res, 404, 'Course not found', 'Pick a course from the index.');
-    const section = typeof req.query.section === 'string' ? req.query.section : 'cours';
-    renderForm(res, course, {
-      title: `Add material · ${course.name}`,
-      action: `/admin/courses/${course.id}/materials`,
-      v: res.locals.flash?.values ?? { section, material_date: todayIso() },
-    });
-  });
+  router.get(
+    '/courses/:id/materials/new',
+    ah(async (req, res) => {
+      const course = await getCourse(db, req.params.id ?? '');
+      if (!course)
+        return renderError(res, 404, 'Course not found', 'Pick a course from the index.');
+      const section = typeof req.query.section === 'string' ? req.query.section : 'cours';
+      renderForm(res, course, {
+        title: `Add material · ${course.name}`,
+        action: `/admin/courses/${course.id}/materials`,
+        v: res.locals.flash?.values ?? { section, material_date: todayIso() },
+      });
+    }),
+  );
 
-  router.post('/courses/:id/materials', upload, verifyCsrf, async (req, res) => {
-    const course = getCourse(db, req.params.id ?? '');
-    if (!course) return renderError(res, 404, 'Course not found', 'Pick a course from the index.');
-    const form = await readForm(req, res, course, `/admin/courses/${course.id}/materials/new`);
-    if (!form) return;
-    const { data, file } = form;
-    // A file wins over a link when both are given.
-    if (!file && !data.url) {
-      return back(
-        req,
-        res,
-        `/admin/courses/${course.id}/materials/new`,
-        'Upload a file or paste a link.',
-        formValues(req.body),
+  router.post(
+    '/courses/:id/materials',
+    upload,
+    verifyCsrf,
+    ah(async (req, res) => {
+      const course = await getCourse(db, req.params.id ?? '');
+      if (!course)
+        return renderError(res, 404, 'Course not found', 'Pick a course from the index.');
+      const form = await readForm(req, res, course, `/admin/courses/${course.id}/materials/new`);
+      if (!form) return;
+      const { data, file } = form;
+      // A file wins over a link when both are given.
+      if (!file && !data.url) {
+        return back(
+          req,
+          res,
+          `/admin/courses/${course.id}/materials/new`,
+          'Upload a file or paste a link.',
+          formValues(req.body),
+        );
+      }
+      const ok = await commit(res, file, (q) =>
+        insertMaterial(q, randomId(), course.id, {
+          ...data,
+          url: file ? null : data.url,
+          file_id: file?.id ?? null,
+        }),
       );
-    }
-    const ok = await commit(res, file, () =>
-      insertMaterial(db, randomId(), course.id, {
-        ...data,
-        url: file ? null : data.url,
-        file_id: file?.id ?? null,
-      }),
-    );
-    if (ok) done(req, res, `/courses/${course.id}#sec-${data.section}`, 'Material added.');
-  });
+      if (ok) done(req, res, `/courses/${course.id}#sec-${data.section}`, 'Material added.');
+    }),
+  );
 
-  router.get('/materials/:id/edit', (req, res) => {
-    const m = getMaterial(db, req.params.id);
-    const course = m && getCourse(db, m.course_id);
-    if (!m || !course) return materialNotFound(res);
-    renderForm(res, course, {
-      title: 'Edit material',
-      action: `/admin/materials/${m.id}`,
-      v: res.locals.flash?.values ?? { ...m, url: m.url ?? '' },
-      currentFile: m.file_id ? m.original_name : null,
-    });
-  });
+  router.get(
+    '/materials/:id/edit',
+    ah(async (req, res) => {
+      const m = await getMaterial(db, req.params.id ?? '');
+      const course = m && (await getCourse(db, m.course_id));
+      if (!m || !course) return materialNotFound(res);
+      renderForm(res, course, {
+        title: 'Edit material',
+        action: `/admin/materials/${m.id}`,
+        v: res.locals.flash?.values ?? { ...m, url: m.url ?? '' },
+        currentFile: m.file_id ? m.original_name : null,
+      });
+    }),
+  );
 
-  router.post('/materials/:id', upload, verifyCsrf, async (req, res) => {
-    const m = getMaterial(db, req.params.id ?? '');
-    const course = m && getCourse(db, m.course_id);
-    if (!m || !course) return materialNotFound(res);
-    const formUrl = `/admin/materials/${m.id}/edit`;
-    const form = await readForm(req, res, course, formUrl);
-    if (!form) return;
-    const { data, file } = form;
+  router.post(
+    '/materials/:id',
+    upload,
+    verifyCsrf,
+    ah(async (req, res) => {
+      const m = await getMaterial(db, req.params.id ?? '');
+      const course = m && (await getCourse(db, m.course_id));
+      if (!m || !course) return materialNotFound(res);
+      const formUrl = `/admin/materials/${m.id}/edit`;
+      const form = await readForm(req, res, course, formUrl);
+      if (!form) return;
+      const { data, file } = form;
 
-    // Next source: a new file, else a link, else keep the current file.
-    let url: string | null = null;
-    let fileId: string | null = null;
-    if (file) fileId = file.id;
-    else if (data.url) url = data.url;
-    else if (m.file_id) fileId = m.file_id;
-    else return back(req, res, formUrl, 'Upload a file or paste a link.', formValues(req.body));
+      // Next source: a new file, else a link, else keep the current file.
+      let url: string | null = null;
+      let fileId: string | null = null;
+      if (file) fileId = file.id;
+      else if (data.url) url = data.url;
+      else if (m.file_id) fileId = m.file_id;
+      else return back(req, res, formUrl, 'Upload a file or paste a link.', formValues(req.body));
 
-    let oldFileGone = false;
-    const ok = await commit(res, file, () => {
-      updateMaterial(db, m.id, { ...data, url, file_id: fileId });
-      if (m.file_id && m.file_id !== fileId) oldFileGone = deleteFileIfUnreferenced(db, m.file_id);
-    });
-    if (!ok) return;
-    if (oldFileGone) await removeQuietly(storage, m.file_id);
-    done(req, res, `/courses/${course.id}#sec-${data.section}`, 'Material saved.');
-  });
+      let oldFileGone = false;
+      const ok = await commit(res, file, async (q) => {
+        await updateMaterial(q, m.id, { ...data, url, file_id: fileId });
+        if (m.file_id && m.file_id !== fileId) {
+          oldFileGone = await deleteFileIfUnreferenced(q, m.file_id);
+        }
+      });
+      if (!ok) return;
+      if (oldFileGone) await removeQuietly(storage, m.file_id);
+      done(req, res, `/courses/${course.id}#sec-${data.section}`, 'Material saved.');
+    }),
+  );
 
-  router.get('/materials/:id/delete', (req, res) => {
-    const m = getMaterial(db, req.params.id);
-    if (!m) return materialNotFound(res);
-    res.render('admin/confirm.njk', {
-      pageTitle: 'Delete material',
-      formPage: true,
-      heading: `Delete “${m.title}”?`,
-      message: 'Students will no longer see it. This cannot be undone.',
-      action: `/admin/materials/${m.id}/delete`,
-      cancel: `/courses/${m.course_id}`,
-      label: 'Delete',
-    });
-  });
+  router.get(
+    '/materials/:id/delete',
+    ah(async (req, res) => {
+      const m = await getMaterial(db, req.params.id ?? '');
+      if (!m) return materialNotFound(res);
+      res.render('admin/confirm.njk', {
+        pageTitle: 'Delete material',
+        formPage: true,
+        heading: `Delete “${m.title}”?`,
+        message: 'Students will no longer see it. This cannot be undone.',
+        action: `/admin/materials/${m.id}/delete`,
+        cancel: `/courses/${m.course_id}`,
+        label: 'Delete',
+      });
+    }),
+  );
 
-  router.post('/materials/:id/delete', async (req, res) => {
-    const m = getMaterial(db, req.params.id);
-    if (!m) return materialNotFound(res);
-    if (req.body?.confirmed !== '1') return res.redirect(303, `/admin/materials/${m.id}/delete`);
-    const fileId = deleteMaterial(db, m.id);
-    await removeQuietly(storage, fileId);
-    done(req, res, `/courses/${m.course_id}#sec-${m.section}`, 'Material deleted.');
-  });
+  router.post(
+    '/materials/:id/delete',
+    ah(async (req, res) => {
+      const m = await getMaterial(db, req.params.id ?? '');
+      if (!m) return materialNotFound(res);
+      if (req.body?.confirmed !== '1') return res.redirect(303, `/admin/materials/${m.id}/delete`);
+      const fileId = await deleteMaterial(db, m.id);
+      await removeQuietly(storage, fileId);
+      done(req, res, `/courses/${m.course_id}#sec-${m.section}`, 'Material deleted.');
+    }),
+  );
 
   return router;
 }

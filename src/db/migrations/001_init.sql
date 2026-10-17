@@ -58,7 +58,7 @@ CREATE TABLE announcements (
 );
 
 CREATE TABLE admins (
-  id            INTEGER PRIMARY KEY,
+  id            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   email         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   created_at    TEXT NOT NULL
@@ -67,6 +67,6 @@ CREATE TABLE admins (
 CREATE TABLE sessions (
   sid           TEXT PRIMARY KEY,
   sess          TEXT NOT NULL,
-  expires_at    INTEGER NOT NULL
+  expires_at    BIGINT NOT NULL
 );
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);

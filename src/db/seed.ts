@@ -104,21 +104,21 @@ const PROFILE = {
 };
 
 /** Idempotent: inserts the profile row and the five courses only if they are missing. */
-export function seed(db: DB): { courses: number; profile: boolean } {
-  return db.transaction(() => {
+export function seed(db: DB): Promise<{ courses: number; profile: boolean }> {
+  return db.tx(async (q) => {
     const profile =
-      db
-        .prepare(
-          `INSERT OR IGNORE INTO profile (id, name, title, affiliation, intro, email, office_hours, updated_at)
-           VALUES (1, '', @title, @affiliation, @intro, '', '', @now)`,
-        )
-        .run({ ...PROFILE, now: nowIso() }).changes > 0;
+      (await q.run(
+        `INSERT INTO profile (id, name, title, affiliation, intro, email, office_hours, updated_at)
+         VALUES (1, '', $1, $2, $3, '', '', $4)
+         ON CONFLICT (id) DO NOTHING`,
+        [PROFILE.title, PROFILE.affiliation, PROFILE.intro, nowIso()],
+      )) > 0;
     let courses = 0;
     for (const { id, ...c } of COURSES) {
-      const before = db.prepare('SELECT 1 FROM courses WHERE id = ?').get(id);
-      insertCourse(db, id, c, true);
-      if (!before) courses++;
+      const before = await q.query('SELECT 1 FROM courses WHERE id = $1', [id]);
+      await insertCourse(q, id, c, true);
+      if (!before.length) courses++;
     }
     return { courses, profile };
-  })();
+  });
 }

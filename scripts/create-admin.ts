@@ -64,10 +64,16 @@ try {
     throw new Error('The passwords do not match.');
 
   loadDotEnv();
-  const db = openDb(loadConfig().databasePath);
-  migrate(db);
-  const result = upsertAdmin(db, email.data, await hashPassword(password));
-  db.close();
+  const config = loadConfig();
+  console.log(
+    config.databaseUrl
+      ? 'Using the Postgres database from DATABASE_URL.'
+      : 'Using the local PGlite database.',
+  );
+  const db = await openDb(config);
+  await migrate(db);
+  const result = await upsertAdmin(db, email.data, await hashPassword(password));
+  await db.close();
   console.log(
     result === 'created' ? `Admin ${email.data} created.` : `Password for ${email.data} updated.`,
   );

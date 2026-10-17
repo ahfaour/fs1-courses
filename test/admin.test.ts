@@ -87,7 +87,7 @@ describe('courses', () => {
         sort_order: '1',
       })
       .expect(303);
-    const c = getCourse(ctx.db, 'os');
+    const c = await getCourse(ctx.db, 'os');
     expect(c?.name).toBe('Operating Systems II');
     expect(c?.topics).toEqual(['Kernels', 'Drivers']);
     expect(c?.color_index).toBe(5);
@@ -110,7 +110,7 @@ describe('courses', () => {
       .send({ _csrf: csrf })
       .expect(303);
     expect(res.headers.location).toBe('/admin/courses/os/delete');
-    expect(getCourse(ctx.db, 'os')).toBeDefined();
+    expect(await getCourse(ctx.db, 'os')).toBeDefined();
   });
 
   it('deleting a course removes its materials, announcements and files', async () => {
@@ -127,7 +127,7 @@ describe('courses', () => {
       .type('form')
       .send({ _csrf: csrf, body: 'General note', course_id: '' })
       .expect(303);
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(1);
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(1);
     expect(storedFiles()).toHaveLength(1);
 
     await agent
@@ -135,10 +135,10 @@ describe('courses', () => {
       .type('form')
       .send({ _csrf: csrf, confirmed: '1' })
       .expect(303);
-    expect(getCourse(ctx.db, 'os')).toBeUndefined();
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(0);
-    expect(listAnnouncements(ctx.db).map((a) => a.body)).toEqual(['General note']);
-    expect(ctx.db.prepare('SELECT COUNT(*) AS n FROM files').get()).toEqual({ n: 0 });
+    expect(await getCourse(ctx.db, 'os')).toBeUndefined();
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(0);
+    expect((await listAnnouncements(ctx.db)).map((a) => a.body)).toEqual(['General note']);
+    expect(await ctx.db.query('SELECT COUNT(*)::int AS n FROM files')).toEqual([{ n: 0 }]);
     expect(storedFiles()).toHaveLength(0);
     await request(ctx.app).get('/courses/os').expect(404);
   });
@@ -151,14 +151,14 @@ describe('materials', () => {
     const form = await agent.get(res.headers.location as string).expect(200);
     expect(form.text).toContain('Upload a file or paste a link.');
     expect(form.text).toContain('value="Nothing attached"');
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(0);
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(0);
   });
 
   it('when both a file and a URL are sent, the file wins', async () => {
     await addMaterial('os', { title: 'Both', section: 'cours', url: 'https://example.com/a' })
       .attach('file', PDF, 'both.pdf')
       .expect(303);
-    const [m] = listForCourse(ctx.db, 'os');
+    const [m] = await listForCourse(ctx.db, 'os');
     expect(m?.file_id).toBeTruthy();
     expect(m?.url).toBeNull();
   });
@@ -169,7 +169,7 @@ describe('materials', () => {
       const form = await agent.get('/admin/courses/os/materials/new');
       expect(form.text, url).toContain('Links must start with http:// or https://');
     }
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(0);
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(0);
   });
 
   it('an admin adds a PDF to Operating Systems → Labs and a student sees it at once', async () => {
@@ -193,20 +193,20 @@ describe('materials', () => {
     await addMaterial('os', { title: 'Info', section: 'info', url: 'https://example.com' }).expect(
       303,
     );
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(0);
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(0);
     await addMaterial('geoai', {
       title: 'Schedule',
       section: 'info',
       url: 'https://example.com',
     }).expect(303);
-    expect(listForCourse(ctx.db, 'geoai')).toHaveLength(1);
+    expect(await listForCourse(ctx.db, 'geoai')).toHaveLength(1);
   });
 
   it('editing with a new file replaces and deletes the old one', async () => {
     await addMaterial('os', { title: 'v1', section: 'cours' })
       .attach('file', PDF, 'v1.pdf')
       .expect(303);
-    const [m] = listForCourse(ctx.db, 'os');
+    const [m] = await listForCourse(ctx.db, 'os');
     const oldFile = m!.file_id!;
     expect(storedFiles()).toEqual([oldFile]);
 
@@ -217,7 +217,7 @@ describe('materials', () => {
       .field('section', 'cours')
       .attach('file', Buffer.concat([PDF, Buffer.from('% v2\n')]), 'v2.pdf')
       .expect(303);
-    const [after] = listForCourse(ctx.db, 'os');
+    const [after] = await listForCourse(ctx.db, 'os');
     expect(after?.title).toBe('v2');
     expect(after?.file_id).not.toBe(oldFile);
     expect(storedFiles()).toEqual([after!.file_id]);
@@ -229,7 +229,7 @@ describe('materials', () => {
       .field('title', 'v3')
       .field('section', 'td')
       .expect(303);
-    const [kept] = listForCourse(ctx.db, 'os');
+    const [kept] = await listForCourse(ctx.db, 'os');
     expect(kept?.file_id).toBe(after?.file_id);
     expect(kept?.section).toBe('td');
 
@@ -241,7 +241,7 @@ describe('materials', () => {
       .field('section', 'td')
       .field('url', 'https://github.com/example/repo')
       .expect(303);
-    const [linked] = listForCourse(ctx.db, 'os');
+    const [linked] = await listForCourse(ctx.db, 'os');
     expect(linked?.url).toBe('https://github.com/example/repo');
     expect(linked?.file_id).toBeNull();
     expect(storedFiles()).toEqual([]);
@@ -251,14 +251,14 @@ describe('materials', () => {
     await addMaterial('os', { title: 'Temp', section: 'cours' })
       .attach('file', PDF, 't.pdf')
       .expect(303);
-    const [m] = listForCourse(ctx.db, 'os');
+    const [m] = await listForCourse(ctx.db, 'os');
     expect(fs.existsSync(path.join(ctx.config.uploadDir, m!.file_id!))).toBe(true);
     await agent
       .post(`/admin/materials/${m!.id}/delete`)
       .type('form')
       .send({ _csrf: csrf, confirmed: '1' })
       .expect(303);
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(0);
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(0);
     expect(storedFiles()).toEqual([]);
   });
 });
@@ -272,7 +272,7 @@ describe('announcements', () => {
       .expect(303);
     const home = await request(ctx.app).get('/').expect(200);
     expect(home.text).toContain('Labs start next week.\nBring a laptop.');
-    const [a] = listAnnouncements(ctx.db);
+    const [a] = await listAnnouncements(ctx.db);
     await agent
       .post(`/admin/announcements/${a!.id}/delete`)
       .type('form')
@@ -293,6 +293,6 @@ describe('announcements', () => {
       .type('form')
       .send({ _csrf: csrf, body: 'x'.repeat(1001) })
       .expect(303);
-    expect(listAnnouncements(ctx.db)).toHaveLength(0);
+    expect(await listAnnouncements(ctx.db)).toHaveLength(0);
   });
 });

@@ -28,7 +28,7 @@ export function filesRouter({ db, storage }: AppDeps): Router {
     try {
       const { id } = req.params;
       if (!id || !FILE_ID_RE.test(id)) return notFound();
-      const row = getFile(db, id);
+      const row = await getFile(db, id);
       if (!row) return notFound();
 
       const etag = `"${row.sha256}"`;

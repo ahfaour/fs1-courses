@@ -1,4 +1,4 @@
-import { nowIso, stmt, type DB } from '../../db/connection.js';
+import { nowIso, one, type Queryable } from '../../db/connection.js';
 
 export interface Announcement {
   id: string;
@@ -13,26 +13,26 @@ const SELECT = `SELECT a.id, a.course_id, a.body, a.posted_on, c.name AS course_
   FROM announcements a LEFT JOIN courses c ON c.id = a.course_id`;
 
 /** Newest first. */
-export function listAnnouncements(db: DB): Announcement[] {
-  return stmt(db, `${SELECT} ORDER BY a.posted_on DESC, a.created_at DESC`).all() as Announcement[];
+export function listAnnouncements(db: Queryable): Promise<Announcement[]> {
+  return db.query<Announcement>(`${SELECT} ORDER BY a.posted_on DESC, a.created_at DESC`);
 }
 
-export function getAnnouncement(db: DB, id: string): Announcement | undefined {
-  return stmt(db, `${SELECT} WHERE a.id = ?`).get(id) as Announcement | undefined;
+export function getAnnouncement(db: Queryable, id: string): Promise<Announcement | undefined> {
+  return one<Announcement>(db, `${SELECT} WHERE a.id = $1`, [id]);
 }
 
-export function insertAnnouncement(
-  db: DB,
+export async function insertAnnouncement(
+  db: Queryable,
   id: string,
   a: { course_id: string | null; body: string; posted_on: string },
-): void {
-  stmt(
-    db,
+): Promise<void> {
+  await db.run(
     `INSERT INTO announcements (id, course_id, body, posted_on, created_at)
-     VALUES (@id, @course_id, @body, @posted_on, @created_at)`,
-  ).run({ ...a, id, created_at: nowIso() });
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id, a.course_id, a.body, a.posted_on, nowIso()],
+  );
 }
 
-export function deleteAnnouncement(db: DB, id: string): boolean {
-  return stmt(db, 'DELETE FROM announcements WHERE id = ?').run(id).changes > 0;
+export async function deleteAnnouncement(db: Queryable, id: string): Promise<boolean> {
+  return (await db.run('DELETE FROM announcements WHERE id = $1', [id])) > 0;
 }

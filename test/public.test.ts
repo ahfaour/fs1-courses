@@ -37,12 +37,12 @@ describe('public pages', () => {
   });
 
   it('shows announcements newest first, with the course tag', async () => {
-    insertAnnouncement(ctx.db, 'a1', {
+    await insertAnnouncement(ctx.db, 'a1', {
       course_id: null,
       body: 'Older note',
       posted_on: '2026-09-01',
     });
-    insertAnnouncement(ctx.db, 'a2', {
+    await insertAnnouncement(ctx.db, 'a2', {
       course_id: 'os',
       body: 'Newer note',
       posted_on: '2026-10-01',
@@ -65,7 +65,7 @@ describe('public pages', () => {
   });
 
   it('groups materials by section and hides empty sections', async () => {
-    insertMaterial(ctx.db, 'm1', 'os', link('Lab 1: fork()', '', 'tp'));
+    await insertMaterial(ctx.db, 'm1', 'os', link('Lab 1: fork()', '', 'tp'));
     const res = await request(ctx.app).get('/courses/os').expect(200);
     expect(res.text).toContain('Labs');
     expect(res.text).toContain('Lab 1: fork()');
@@ -75,15 +75,20 @@ describe('public pages', () => {
   });
 
   it('search finds a material by a word in its note', async () => {
-    insertMaterial(ctx.db, 'm1', 'rdb', link('Exercise sheet 2', 'Covers normalisation and BCNF'));
+    await insertMaterial(
+      ctx.db,
+      'm1',
+      'rdb',
+      link('Exercise sheet 2', 'Covers normalisation and BCNF'),
+    );
     const res = await request(ctx.app).get('/search?q=bcnf').expect(200);
     expect(res.text).toContain('Exercise sheet 2');
     expect(res.text).toContain('Relational Databases');
   });
 
   it('search treats % and _ literally', async () => {
-    insertMaterial(ctx.db, 'm1', 'ml', link('Grades', 'Worth 40% of the mark'));
-    insertMaterial(ctx.db, 'm2', 'ml', link('Plain title', 'nothing special'));
+    await insertMaterial(ctx.db, 'm1', 'ml', link('Grades', 'Worth 40% of the mark'));
+    await insertMaterial(ctx.db, 'm2', 'ml', link('Plain title', 'nothing special'));
     const pct = await request(ctx.app).get('/search?q=%25').expect(200);
     expect(pct.text).toContain('Grades');
     expect(pct.text).not.toContain('Plain title');
@@ -101,13 +106,13 @@ describe('public pages', () => {
   });
 
   it('stored HTML renders escaped', async () => {
-    insertMaterial(
+    await insertMaterial(
       ctx.db,
       'm1',
       'os',
       link('<script>alert(1)</script>', '<img src=x onerror=alert(1)>'),
     );
-    insertAnnouncement(ctx.db, 'a1', {
+    await insertAnnouncement(ctx.db, 'a1', {
       course_id: null,
       body: '<script>bad()</script>',
       posted_on: '2026-10-01',

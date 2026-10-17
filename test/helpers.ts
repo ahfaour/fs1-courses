@@ -4,7 +4,7 @@ import path from 'node:path';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import type { Config } from '../src/config.js';
-import { openDb } from '../src/db/connection.js';
+import { pglite, type DB } from '../src/db/connection.js';
 import { migrate } from '../src/db/migrate.js';
 import { seed } from '../src/db/seed.js';
 import { hashPassword } from '../src/modules/auth/passwords.js';
@@ -16,6 +16,24 @@ export const ADMIN_EMAIL = 'admin@example.com';
 export const ADMIN_PASSWORD = 'correct horse battery staple';
 
 let hash: Promise<string> | undefined;
+// Starting PGlite takes a couple of seconds, so each test file shares one in-memory database
+// and empties it before every test.
+let shared: Promise<DB> | undefined;
+
+async function freshDb(): Promise<DB> {
+  shared ??= pglite('memory').then(async (db) => {
+    await migrate(db);
+    return db;
+  });
+  const db = await shared;
+  await db.exec(
+    'TRUNCATE sessions, announcements, materials, files, courses, profile, admins RESTART IDENTITY CASCADE',
+  );
+  await seed(db);
+  hash ??= hashPassword(ADMIN_PASSWORD);
+  await upsertAdmin(db, ADMIN_EMAIL, await hash);
+  return db;
+}
 
 /** A fresh app on an in-memory, seeded database with one admin, and a temp uploads folder. */
 export async function makeApp(overrides: Partial<Config> = {}) {
@@ -23,22 +41,19 @@ export async function makeApp(overrides: Partial<Config> = {}) {
   const config: Config = {
     env: 'test',
     port: 0,
-    databasePath: ':memory:',
+    databaseUrl: null,
+    pgliteDir: 'memory',
     uploadDir: path.join(dir, 'uploads'),
+    s3: null,
     maxUploadMb: 1,
     sessionSecret: 'test-secret-that-is-long-enough-1234567890',
-    trustProxy: false,
+    trustProxy: 0,
     ...overrides,
   };
-  const db = openDb(config.databasePath);
-  migrate(db);
-  seed(db);
-  hash ??= hashPassword(ADMIN_PASSWORD);
-  upsertAdmin(db, ADMIN_EMAIL, await hash);
+  const db = await freshDb();
   const storage = diskStorage(config.uploadDir);
   const app = createApp({ config, db, storage });
   const cleanup = () => {
-    db.close();
     fs.rmSync(dir, { recursive: true, force: true });
   };
   return { app, db, config, storage, dir, cleanup };

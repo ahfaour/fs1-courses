@@ -1,4 +1,4 @@
-import { nowIso, stmt, type DB } from '../../db/connection.js';
+import { nowIso, one, type DB, type Queryable } from '../../db/connection.js';
 import { deleteFileIfUnreferenced } from '../files/queries.js';
 
 export interface Course {
@@ -39,88 +39,103 @@ const toCourse = ({ topics_json, ...row }: CourseRow): Course => ({
 const SELECT = `
   SELECT c.id, c.name, c.code, c.level, c.semester, c.kind, c.description, c.topics_json,
          c.color_index, c.sort_order,
-         (SELECT COUNT(*) FROM materials m WHERE m.course_id = c.id) AS material_count,
+         (SELECT COUNT(*)::int FROM materials m WHERE m.course_id = c.id) AS material_count,
          (SELECT MAX(m.material_date) FROM materials m WHERE m.course_id = c.id) AS last_material_date
   FROM courses c`;
 
 /** Courses first, then programs, each by sort_order then name. */
-export function listCourses(db: DB): Course[] {
-  const rows = stmt(
-    db,
+export async function listCourses(db: Queryable): Promise<Course[]> {
+  const rows = await db.query<CourseRow>(
     `${SELECT} ORDER BY CASE c.kind WHEN 'course' THEN 0 ELSE 1 END, c.sort_order, c.name`,
-  ).all() as CourseRow[];
+  );
   return rows.map(toCourse);
 }
 
-export function getCourse(db: DB, id: string): Course | undefined {
-  const row = stmt(db, `${SELECT} WHERE c.id = ?`).get(id) as CourseRow | undefined;
+export async function getCourse(db: Queryable, id: string): Promise<Course | undefined> {
+  const row = await one<CourseRow>(db, `${SELECT} WHERE c.id = $1`, [id]);
   return row && toCourse(row);
 }
 
-export function courseExists(db: DB, id: string): boolean {
-  return !!stmt(db, 'SELECT 1 FROM courses WHERE id = ?').get(id);
+export async function courseExists(db: Queryable, id: string): Promise<boolean> {
+  return !!(await one(db, 'SELECT 1 FROM courses WHERE id = $1', [id]));
 }
 
-export function nextSortOrder(db: DB): number {
-  const r = stmt(db, 'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM courses').get() as {
-    n: number;
-  };
-  return r.n;
+export async function nextSortOrder(db: Queryable): Promise<number> {
+  const r = await one<{ n: number }>(
+    db,
+    'SELECT (COALESCE(MAX(sort_order), -1) + 1)::int AS n FROM courses',
+  );
+  return r?.n ?? 0;
 }
 
-export function countCourses(db: DB): number {
-  return (stmt(db, 'SELECT COUNT(*) AS n FROM courses').get() as { n: number }).n;
+export async function countCourses(db: Queryable): Promise<number> {
+  return (await one<{ n: number }>(db, 'SELECT COUNT(*)::int AS n FROM courses'))?.n ?? 0;
 }
 
-const params = (id: string, { topics, ...c }: CourseInput) => ({
-  ...c,
+const values = (id: string, { topics, ...c }: CourseInput) => [
   id,
-  topics_json: JSON.stringify(topics),
-});
+  c.name,
+  c.code,
+  c.level,
+  c.semester,
+  c.kind,
+  c.description,
+  JSON.stringify(topics),
+  c.color_index,
+  c.sort_order,
+  nowIso(),
+];
 
-export function insertCourse(db: DB, id: string, c: CourseInput, ignoreExisting = false): void {
-  const now = nowIso();
-  stmt(
-    db,
-    `INSERT ${ignoreExisting ? 'OR IGNORE' : ''} INTO courses
+export async function insertCourse(
+  db: Queryable,
+  id: string,
+  c: CourseInput,
+  ignoreExisting = false,
+): Promise<void> {
+  await db.run(
+    `INSERT INTO courses
        (id, name, code, level, semester, kind, description, topics_json, color_index, sort_order, created_at, updated_at)
-     VALUES (@id, @name, @code, @level, @semester, @kind, @description, @topics_json, @color_index, @sort_order, @now, @now)`,
-  ).run({ ...params(id, c), now });
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+     ${ignoreExisting ? 'ON CONFLICT (id) DO NOTHING' : ''}`,
+    values(id, c),
+  );
 }
 
-export function updateCourse(db: DB, id: string, c: CourseInput): void {
-  stmt(
-    db,
-    `UPDATE courses SET name = @name, code = @code, level = @level, semester = @semester,
-       kind = @kind, description = @description, topics_json = @topics_json,
-       color_index = @color_index, sort_order = @sort_order, updated_at = @now
-     WHERE id = @id`,
-  ).run({ ...params(id, c), now: nowIso() });
+export async function updateCourse(db: Queryable, id: string, c: CourseInput): Promise<void> {
+  await db.run(
+    `UPDATE courses SET name = $2, code = $3, level = $4, semester = $5,
+       kind = $6, description = $7, topics_json = $8,
+       color_index = $9, sort_order = $10, updated_at = $11
+     WHERE id = $1`,
+    values(id, c),
+  );
 }
 
 /** Deletes the course (materials and announcements cascade). Returns ids of stored files no longer referenced. */
-export function deleteCourse(db: DB, id: string): string[] {
-  return db.transaction(() => {
+export function deleteCourse(db: DB, id: string): Promise<string[]> {
+  return db.tx(async (q) => {
     const fileIds = (
-      stmt(
-        db,
-        'SELECT DISTINCT file_id FROM materials WHERE course_id = ? AND file_id IS NOT NULL',
-      ).all(id) as { file_id: string }[]
+      await q.query<{ file_id: string }>(
+        'SELECT DISTINCT file_id FROM materials WHERE course_id = $1 AND file_id IS NOT NULL',
+        [id],
+      )
     ).map((r) => r.file_id);
-    stmt(db, 'DELETE FROM courses WHERE id = ?').run(id);
-    return fileIds.filter((fid) => deleteFileIfUnreferenced(db, fid));
-  })();
+    await q.run('DELETE FROM courses WHERE id = $1', [id]);
+    const gone: string[] = [];
+    for (const fid of fileIds) if (await deleteFileIfUnreferenced(q, fid)) gone.push(fid);
+    return gone;
+  });
 }
 
 /** Most recent change to anything students see, for the footer. */
-export function lastUpdated(db: DB): string | null {
-  const r = stmt(
+export async function lastUpdated(db: Queryable): Promise<string | null> {
+  const r = await one<{ t: string | null }>(
     db,
     `SELECT MAX(t) AS t FROM (
        SELECT MAX(updated_at) AS t FROM materials
        UNION ALL SELECT MAX(created_at) FROM announcements
        UNION ALL SELECT MAX(updated_at) FROM courses
-       UNION ALL SELECT MAX(updated_at) FROM profile)`,
-  ).get() as { t: string | null };
-  return r.t;
+       UNION ALL SELECT MAX(updated_at) FROM profile) AS changes`,
+  );
+  return r?.t ?? null;
 }

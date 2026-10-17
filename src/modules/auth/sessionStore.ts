@@ -1,17 +1,17 @@
 import session from 'express-session';
-import { stmt, type DB } from '../../db/connection.js';
+import { one, type DB } from '../../db/connection.js';
 
 type Callback = (err?: unknown, data?: session.SessionData | null) => void;
 
 const DEFAULT_TTL_MS = 8 * 60 * 60 * 1000;
 
-/** express-session store backed by the app's SQLite database (table `sessions`). */
-export class SqliteSessionStore extends session.Store {
+/** express-session store backed by the app's database (table `sessions`). */
+export class DbSessionStore extends session.Store {
   private readonly timer: NodeJS.Timeout;
 
   constructor(private readonly db: DB) {
     super();
-    this.timer = setInterval(() => this.prune(), 15 * 60 * 1000);
+    this.timer = setInterval(() => void this.prune(), 15 * 60 * 1000);
     this.timer.unref();
   }
 
@@ -21,50 +21,47 @@ export class SqliteSessionStore extends session.Store {
   }
 
   override get(sid: string, cb: Callback): void {
-    try {
-      const row = stmt(this.db, 'SELECT sess, expires_at FROM sessions WHERE sid = ?').get(sid) as
-        { sess: string; expires_at: number } | undefined;
-      if (!row || row.expires_at <= Date.now()) return cb(null, null);
-      cb(null, JSON.parse(row.sess) as session.SessionData);
-    } catch (err) {
-      cb(err);
-    }
+    one<{ sess: string }>(this.db, 'SELECT sess FROM sessions WHERE sid = $1 AND expires_at > $2', [
+      sid,
+      Date.now(),
+    ]).then(
+      (row) => cb(null, row ? (JSON.parse(row.sess) as session.SessionData) : null),
+      (err: unknown) => cb(err),
+    );
   }
 
   override set(sid: string, sess: session.SessionData, cb?: (err?: unknown) => void): void {
-    try {
-      stmt(
-        this.db,
-        `INSERT INTO sessions (sid, sess, expires_at) VALUES (?, ?, ?)
-         ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires_at = excluded.expires_at`,
-      ).run(sid, JSON.stringify(sess), this.expiry(sess));
-      cb?.();
-    } catch (err) {
-      cb?.(err);
-    }
+    this.db
+      .run(
+        `INSERT INTO sessions (sid, sess, expires_at) VALUES ($1, $2, $3)
+         ON CONFLICT (sid) DO UPDATE SET sess = excluded.sess, expires_at = excluded.expires_at`,
+        [sid, JSON.stringify(sess), this.expiry(sess)],
+      )
+      .then(
+        () => cb?.(),
+        (err: unknown) => cb?.(err),
+      );
   }
 
   override touch(sid: string, sess: session.SessionData, cb?: (err?: unknown) => void): void {
-    try {
-      stmt(this.db, 'UPDATE sessions SET expires_at = ? WHERE sid = ?').run(this.expiry(sess), sid);
-      cb?.();
-    } catch (err) {
-      cb?.(err);
-    }
+    this.db
+      .run('UPDATE sessions SET expires_at = $1 WHERE sid = $2', [this.expiry(sess), sid])
+      .then(
+        () => cb?.(),
+        (err: unknown) => cb?.(err),
+      );
   }
 
   override destroy(sid: string, cb?: (err?: unknown) => void): void {
-    try {
-      stmt(this.db, 'DELETE FROM sessions WHERE sid = ?').run(sid);
-      cb?.();
-    } catch (err) {
-      cb?.(err);
-    }
+    this.db.run('DELETE FROM sessions WHERE sid = $1', [sid]).then(
+      () => cb?.(),
+      (err: unknown) => cb?.(err),
+    );
   }
 
-  prune(): void {
+  async prune(): Promise<void> {
     try {
-      stmt(this.db, 'DELETE FROM sessions WHERE expires_at <= ?').run(Date.now());
+      await this.db.run('DELETE FROM sessions WHERE expires_at <= $1', [Date.now()]);
     } catch {
       // The database may already be closed during shutdown.
     }

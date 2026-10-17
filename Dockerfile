@@ -11,7 +11,7 @@ RUN npm run build && npm prune --omit=dev
 FROM node:24-slim
 ENV NODE_ENV=production \
     PORT=3000 \
-    DATABASE_PATH=/app/data/site.db \
+    PGLITE_DIR=/app/data/pglite \
     UPLOAD_DIR=/app/data/uploads
 WORKDIR /app
 COPY --from=build /app/package.json ./
@@ -22,6 +22,7 @@ COPY src/db/migrations ./src/db/migrations
 COPY public ./public
 RUN mkdir -p /app/data && chown node:node /app/data
 USER node
+# Only used without DATABASE_URL / S3_BUCKET (embedded database and local uploads).
 VOLUME ["/app/data"]
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://localhost:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"

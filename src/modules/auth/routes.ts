@@ -54,7 +54,7 @@ export function loginRouter({ db }: AppDeps): Router {
   router.post('/login', limiter, verifyCsrf, async (req, res, next) => {
     try {
       const { email, password } = LoginSchema.parse(req.body ?? {});
-      const admin = email ? findAdminByEmail(db, email) : undefined;
+      const admin = email ? await findAdminByEmail(db, email) : undefined;
       const ok = await verifyPassword(admin?.password_hash, password);
       if (!admin || !ok) return renderLogin(req, res, 401, GENERIC_ERROR, email);
 

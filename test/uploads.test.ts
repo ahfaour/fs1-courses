@@ -40,7 +40,7 @@ describe('upload validation', () => {
       await upload(Buffer.from(body), name).expect(303);
       expect(await errorShown(), name).toContain('This file type can&#39;t be uploaded.');
     }
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(0);
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(0);
     expect(diskEntries()).toEqual([]);
   });
 
@@ -58,13 +58,13 @@ describe('upload validation', () => {
     expect(await errorShown()).toContain(
       'That file is over the 1 MB limit. Share it through a link instead.',
     );
-    expect(listForCourse(ctx.db, 'os')).toHaveLength(0);
+    expect(await listForCourse(ctx.db, 'os')).toHaveLength(0);
     expect(diskEntries()).toEqual([]);
   });
 
   it('accepts text formats such as a Python file', async () => {
     await upload(Buffer.from('print("bonjour")\n'), 'tp1.py').expect(303);
-    const [m] = listForCourse(ctx.db, 'os');
+    const [m] = await listForCourse(ctx.db, 'os');
     expect(m?.original_name).toBe('tp1.py');
     const res = await request(ctx.app).get(`/files/${m!.file_id}/tp1.py`).expect(200);
     expect(res.headers['content-disposition']).toMatch(/^attachment;/);
@@ -74,7 +74,7 @@ describe('upload validation', () => {
 describe('file serving', () => {
   it('serves a PDF inline with the right headers', async () => {
     await upload(PDF, 'lecture.pdf').expect(303);
-    const [m] = listForCourse(ctx.db, 'os');
+    const [m] = await listForCourse(ctx.db, 'os');
     const res = await request(ctx.app).get(`/files/${m!.file_id}/lecture.pdf`).expect(200);
     expect(res.headers['content-type']).toBe('application/pdf');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
@@ -98,7 +98,7 @@ describe('file serving', () => {
       .field('section', 'cours')
       .attach('file', PDF, { filename: name, contentType: 'application/pdf' })
       .expect(303);
-    const [m] = listForCourse(ctx.db, 'os');
+    const [m] = await listForCourse(ctx.db, 'os');
     expect(m?.original_name).toBe(name);
     const res = await request(ctx.app).get(`/files/${m!.file_id}`).expect(200);
     const header = res.headers['content-disposition'] as string;
@@ -108,12 +108,9 @@ describe('file serving', () => {
   });
 
   it('serves scriptable types as octet-stream (defence in depth)', async () => {
-    ctx.db
-      .prepare(
-        `INSERT INTO files (id, original_name, mime_type, size_bytes, sha256, created_at)
-         VALUES ('evilfile01', 'x.html', 'text/html', 5, 'abc', '2026-01-01')`,
-      )
-      .run();
+    await ctx.db
+      .run(`INSERT INTO files (id, original_name, mime_type, size_bytes, sha256, created_at)
+         VALUES ('evilfile01', 'x.html', 'text/html', 5, 'abc', '2026-01-01')`);
     fs.writeFileSync(`${ctx.config.uploadDir}/evilfile01`, '<b>x</b>');
     const res = await request(ctx.app).get('/files/evilfile01').expect(200);
     expect(res.headers['content-type']).toBe('application/octet-stream');
@@ -123,12 +120,9 @@ describe('file serving', () => {
   it('404s unknown ids, bad ids and files missing on disk', async () => {
     await request(ctx.app).get('/files/doesnotexist').expect(404);
     await request(ctx.app).get('/files/..%2F..%2Fetc%2Fpasswd').expect(404);
-    ctx.db
-      .prepare(
-        `INSERT INTO files (id, original_name, mime_type, size_bytes, sha256, created_at)
-         VALUES ('missing0001', 'gone.pdf', 'application/pdf', 5, 'abc', '2026-01-01')`,
-      )
-      .run();
+    await ctx.db
+      .run(`INSERT INTO files (id, original_name, mime_type, size_bytes, sha256, created_at)
+         VALUES ('missing0001', 'gone.pdf', 'application/pdf', 5, 'abc', '2026-01-01')`);
     await request(ctx.app).get('/files/missing0001/gone.pdf').expect(404);
   });
 });
