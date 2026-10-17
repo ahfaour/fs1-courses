@@ -41,19 +41,20 @@ On Windows PowerShell, if `npm` is blocked by the script execution policy, use `
 
 ### Scripts
 
-| Script                    | What it does                                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------------------------ |
-| `npm run dev`             | Start with auto-reload (tsx).                                                                    |
-| `npm run build`           | Compile to `dist/`.                                                                              |
-| `npm start`               | Run the compiled app (`node dist/src/server.js`).                                                |
-| `npm test`                | Unit and HTTP integration tests (vitest + supertest, in-memory PGlite).                          |
-| `npm run typecheck`       | TypeScript `--strict` check, tests included.                                                     |
-| `npm run lint`            | ESLint and Prettier check. `npm run format` fixes formatting.                                    |
-| `npm run migrate`         | Apply pending `src/db/migrations/*.sql` (also runs automatically at startup).                    |
-| `npm run seed`            | Insert the profile row and starter courses if missing. Never overwrites edits.                   |
-| `npm run create-admin`    | Create the admin or reset its password: `-- --email you@example.com`.                            |
-| `npm run backup`          | Copy every table (JSON) and every uploaded file into `backups/fs1-<date>/`. Keeps the newest 14. |
-| `npm run cleanup-orphans` | Delete stray stored files and unreferenced file rows older than 24 h. `-- --dry-run` to preview. |
+| Script                    | What it does                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run dev`             | Start with auto-reload (tsx).                                                                                                                    |
+| `npm run build`           | Compile to `dist/`.                                                                                                                              |
+| `npm start`               | Run the compiled app (`node dist/src/server.js`).                                                                                                |
+| `npm test`                | Unit and HTTP integration tests (vitest + supertest, in-memory PGlite).                                                                          |
+| `npm run typecheck`       | TypeScript `--strict` check, tests included.                                                                                                     |
+| `npm run lint`            | ESLint and Prettier check. `npm run format` fixes formatting.                                                                                    |
+| `npm run migrate`         | Apply pending `src/db/migrations/*.sql` (also runs automatically at startup).                                                                    |
+| `npm run seed`            | Insert the profile row and starter courses if missing. Never overwrites edits.                                                                   |
+| `npm run create-admin`    | Create the admin or reset its password: `-- --email you@example.com`.                                                                            |
+| `npm run backup`          | Copy every table (JSON) and every uploaded file into `backups/fs1-<date>/`. Keeps the newest 14.                                                 |
+| `npm run cleanup-orphans` | Delete stray stored files and unreferenced file rows older than 24 h. `-- --dry-run` to preview.                                                 |
+| `npm run import-sqlite`   | One-time copy of the first version's `data/site.db` + `data/uploads` into the current database. Replaces the content; dry run unless `-- --yes`. |
 
 Every script uses the same settings as the app, so with `DATABASE_URL` set it works on
 the live site's data.
