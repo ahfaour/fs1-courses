@@ -1,49 +1,56 @@
-/* Colour theme: Auto (follow the device), Light or Dark, remembered in this browser.
-   Loaded in <head> without defer so a saved choice is applied before the page is drawn. */
+/* Light / dark toggle. The page starts with the device's setting; the button switches to the
+   other theme and the choice is remembered in this browser. Loaded in <head> without defer so a
+   saved choice is applied before the page is drawn. */
 (function () {
   'use strict';
   var KEY = 'fs1-theme';
   var root = document.documentElement;
+  var deviceDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function saved() {
     try {
       var v = localStorage.getItem(KEY);
-      return v === 'light' || v === 'dark' ? v : 'auto';
+      return v === 'light' || v === 'dark' ? v : null;
     } catch {
-      return 'auto';
+      return null;
     }
   }
 
-  function apply(choice) {
-    if (choice === 'auto') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', choice);
+  function current() {
+    return root.getAttribute('data-theme') || (deviceDark && deviceDark.matches ? 'dark' : 'light');
   }
 
-  apply(saved());
+  var choice = saved();
+  if (choice) root.setAttribute('data-theme', choice);
 
   document.addEventListener('DOMContentLoaded', function () {
-    var group = document.querySelector('[data-theme-switch]');
-    if (!group) return;
-    var buttons = group.querySelectorAll('button[data-theme-choice]');
-    var mark = function (choice) {
-      buttons.forEach(function (b) {
-        b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-choice') === choice));
-      });
+    var btn = document.querySelector('[data-theme-toggle]');
+    if (!btn) return;
+
+    var label = function () {
+      var dark = current() === 'dark';
+      btn.textContent = '';
+      var icon = document.createElement('span');
+      icon.className = 'icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = dark ? '☀' : '☾';
+      btn.append(icon, dark ? ' Light mode' : ' Dark mode');
+      btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
     };
-    mark(saved());
-    group.hidden = false;
-    group.addEventListener('click', function (e) {
-      var b = e.target.closest('button[data-theme-choice]');
-      if (!b) return;
-      var choice = b.getAttribute('data-theme-choice');
+
+    label();
+    btn.hidden = false;
+    btn.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
       try {
-        if (choice === 'auto') localStorage.removeItem(KEY);
-        else localStorage.setItem(KEY, choice);
+        localStorage.setItem(KEY, next);
       } catch {
-        // Storage blocked (private mode): the choice still applies to this page.
+        // Storage blocked (private mode): the change still applies to this page.
       }
-      apply(choice);
-      mark(choice);
+      label();
     });
+    // While no choice is saved, follow the device if its setting changes.
+    if (deviceDark && deviceDark.addEventListener) deviceDark.addEventListener('change', label);
   });
 })();

@@ -36,12 +36,9 @@ describe('public pages', () => {
     expect(res.headers['content-security-policy']).toContain("frame-ancestors 'none'");
   });
 
-  it('offers an Auto / Light / Dark theme switch, loaded before the page is drawn', async () => {
+  it('offers a light / dark toggle, loaded before the page is drawn', async () => {
     const res = await request(ctx.app).get('/').expect(200);
-    expect(res.text).toContain('data-theme-switch');
-    for (const choice of ['auto', 'light', 'dark']) {
-      expect(res.text).toContain(`data-theme-choice="${choice}"`);
-    }
+    expect(res.text).toContain('data-theme-toggle');
     const head = res.text.slice(0, res.text.indexOf('</head>'));
     // Fingerprinted so browsers drop a cached copy after a deploy.
     expect(head).toMatch(/<script src="\/js\/theme\.js\?v=[0-9a-f]{10}"><\/script>/);

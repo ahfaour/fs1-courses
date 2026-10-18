@@ -201,35 +201,10 @@ header.top .wrap {
   justify-items: end;
   min-width: 0;
 }
-/* Auto / Light / Dark switch */
-.theme {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.theme .seg {
-  display: inline-flex;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.theme button {
-  font: 500 12px var(--f-body);
-  background: transparent;
-  color: var(--muted);
-  border: 0;
-  padding: 3px 9px;
-  cursor: pointer;
-}
-.theme button + button {
-  border-left: 1px solid var(--line);
-}
-.theme button:hover {
-  color: var(--ink);
-}
-.theme button[aria-pressed='true'] {
-  background: var(--accent-soft);
-  color: var(--ink);
+/* light / dark toggle */
+.theme-toggle .icon {
+  font-size: 13px;
+  line-height: 1;
 }
 .contact {
   justify-self: stretch;
