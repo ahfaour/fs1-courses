@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/css/site.css">
+<script src="/js/theme.js"></script>
 <script src="/js/enhance.js" defer></script>
 </head>
 <body>
@@ -37,12 +38,22 @@
     <{{ nameTag }} class="h1"><a href="/">{{ siteName }}</a></{{ nameTag }}>
     {% if profile.title %}<p class="role">{{ profile.title }}</p>{% endif %}
   </div>
+  <div class="side">
+  <div class="theme" role="group" aria-label="Colour theme" data-theme-switch hidden>
+    <span class="label">Theme</span>
+    <span class="seg">
+      <button type="button" data-theme-choice="auto" aria-pressed="true" title="Follow this device's setting">Auto</button>
+      <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+      <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+    </span>
+  </div>
   {% if profile.email or profile.office_hours %}
   <div class="contact">
     {% if profile.email %}<div class="row"><span class="label">Email</span><span class="mono" id="em">{{ profile.email }}</span><button class="btn small" type="button" data-copy="#em" hidden>Copy</button></div>{% endif %}
     {% if profile.office_hours %}<div class="row"><span class="label">Office hours</span><span>{{ profile.office_hours }}</span></div>{% endif %}
   </div>
   {% endif %}
+  </div>
 </div></header>
 {% block body %}{% endblock %}
 <footer><div class="wrap mono">

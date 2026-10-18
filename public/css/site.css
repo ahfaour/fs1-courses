@@ -1,6 +1,6 @@
 /* FS1 Computer Science Courses. Layout: a university course catalogue with a sticky course index
    on the left and the selected course's material register on the right. Ported from the reference
-   prototype; colours are tokens, light on :root and dark under prefers-color-scheme. */
+   prototype; colours are tokens, light on :root and dark for a dark device or data-theme='dark'. */
 :root {
   --paper: #f1f3f6;
   --surface: #ffffff;
@@ -22,8 +22,9 @@
   --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   color-scheme: light;
 }
+/* Dark: follows the device unless the visitor picked Light or Dark (data-theme, set by theme.js). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --paper: #0f141b;
     --surface: #161d27;
     --ink: #e5e9ef;
@@ -41,6 +42,24 @@
     --c5: #a3a7f0;
     color-scheme: dark;
   }
+}
+:root[data-theme='dark'] {
+  --paper: #0f141b;
+  --surface: #161d27;
+  --ink: #e5e9ef;
+  --muted: #98a2b1;
+  --line: #29323f;
+  --accent: #4dc2a2;
+  --accent-ink: #06231c;
+  --accent-soft: #16302a;
+  --warn: #f0846f;
+  --c0: #e58a62;
+  --c1: #79aee0;
+  --c2: #d6b455;
+  --c3: #dc85b4;
+  --c4: #4dc2a2;
+  --c5: #a3a7f0;
+  color-scheme: dark;
 }
 
 /* course colour: each element sets --cc from its course's color_index */
@@ -176,7 +195,44 @@ header.top .wrap {
   color: var(--muted);
   margin: 0;
 }
+.side {
+  display: grid;
+  gap: 14px;
+  justify-items: end;
+  min-width: 0;
+}
+/* Auto / Light / Dark switch */
+.theme {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.theme .seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.theme button {
+  font: 500 12px var(--f-body);
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.theme button + button {
+  border-left: 1px solid var(--line);
+}
+.theme button:hover {
+  color: var(--ink);
+}
+.theme button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
 .contact {
+  justify-self: stretch;
   display: grid;
   gap: 6px;
   justify-items: start;
@@ -736,6 +792,9 @@ footer a {
 }
 
 @media (max-width: 820px) {
+  .side {
+    justify-items: start;
+  }
   .layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;

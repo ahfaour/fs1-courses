@@ -36,6 +36,18 @@ describe('public pages', () => {
     expect(res.headers['content-security-policy']).toContain("frame-ancestors 'none'");
   });
 
+  it('offers an Auto / Light / Dark theme switch, loaded before the page is drawn', async () => {
+    const res = await request(ctx.app).get('/').expect(200);
+    expect(res.text).toContain('data-theme-switch');
+    for (const choice of ['auto', 'light', 'dark']) {
+      expect(res.text).toContain(`data-theme-choice="${choice}"`);
+    }
+    const head = res.text.slice(0, res.text.indexOf('</head>'));
+    expect(head).toContain('<script src="/js/theme.js"></script>');
+    const js = await request(ctx.app).get('/js/theme.js').expect(200);
+    expect(js.text).toContain('localStorage');
+  });
+
   it('shows announcements newest first, with the course tag', async () => {
     await insertAnnouncement(ctx.db, 'a1', {
       course_id: null,
