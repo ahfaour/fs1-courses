@@ -377,3 +377,29 @@ describe('material order', () => {
       .expect('location', '/admin/login');
   });
 });
+
+describe('TP section', () => {
+  it('is offered in every course, after Labs, and keeps its own materials', async () => {
+    const form = (await agent.get('/admin/courses/os/materials/new').expect(200)).text;
+    expect(form.indexOf('value="tp"')).toBeLessThan(form.indexOf('value="tp2"'));
+    await addMaterial('os', {
+      title: 'TP 1 – Shell',
+      section: 'tp2',
+      url: 'https://example.com/tp1',
+    })
+      .expect(303)
+      .expect('location', '/courses/os#sec-tp2');
+    await addMaterial('os', {
+      title: 'Lab 1',
+      section: 'tp',
+      url: 'https://example.com/lab1',
+    }).expect(303);
+    const page = (await request(ctx.app).get('/courses/os').expect(200)).text;
+    const labs = page.indexOf('id="sec-tp"');
+    const tp = page.indexOf('id="sec-tp2"');
+    expect(labs).toBeGreaterThan(-1);
+    expect(tp).toBeGreaterThan(labs);
+    expect(page.indexOf('Lab 1')).toBeLessThan(tp);
+    expect(page.indexOf('TP 1 – Shell')).toBeGreaterThan(tp);
+  });
+});

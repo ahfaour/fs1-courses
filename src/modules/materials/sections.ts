@@ -2,6 +2,7 @@ export const SECTIONS = [
   { key: 'cours', label: 'Lectures', fr: 'Cours' },
   { key: 'td', label: 'Tutorials', fr: 'TD' },
   { key: 'tp', label: 'Labs', fr: 'TP' },
+  { key: 'tp2', label: 'TP', fr: '' },
   { key: 'proj', label: 'Projects', fr: '' },
   { key: 'exam', label: 'Exams & solutions', fr: '' },
   { key: 'read', label: 'Readings & links', fr: '' },
