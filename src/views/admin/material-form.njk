@@ -15,6 +15,10 @@
     <span class="hint" id="h-file">{% if currentFile %}Current file: {{ currentFile }}. Choose a new one to replace it.{% else %}PDF, slides, notebooks, code… up to {{ maxUploadMb }} MB. Or paste a link below.{% endif %}</span>
   </label>
   {{ field("url", "Or a link", v, type="url", placeholder="https://drive.google.com/…", hint=urlHint, maxlength=2000) }}
+  <label class="check" for="f-hidden">
+    <input id="f-hidden" name="hidden" type="checkbox" value="1"{% if v.hidden == true or v.hidden == "1" %} checked{% endif %} aria-describedby="h-hidden">
+    <span>Hidden from students<span class="hint" id="h-hidden">Only you see it until you click Show on the course page.</span></span>
+  </label>
   {{ formError(flash) }}
   <div class="actions"><a class="btn" href="/courses/{{ course.id }}" data-close>Cancel</a><button class="btn primary" type="submit">Save</button></div>
 </form>

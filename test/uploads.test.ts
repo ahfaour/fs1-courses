@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { listForCourse } from '../src/modules/materials/queries.js';
+import { insertMaterial, listForCourse } from '../src/modules/materials/queries.js';
 import { PDF, makeApp, signIn } from './helpers.js';
 
 let ctx: Awaited<ReturnType<typeof makeApp>>;
@@ -112,6 +112,15 @@ describe('file serving', () => {
       .run(`INSERT INTO files (id, original_name, mime_type, size_bytes, sha256, created_at)
          VALUES ('evilfile01', 'x.html', 'text/html', 5, 'abc', '2026-01-01')`);
     fs.writeFileSync(`${ctx.config.uploadDir}/evilfile01`, '<b>x</b>');
+    await insertMaterial(ctx.db, 'evilmat001', 'os', {
+      section: 'cours',
+      title: 'x',
+      note: '',
+      material_date: null,
+      url: null,
+      file_id: 'evilfile01',
+      hidden: false,
+    });
     const res = await request(ctx.app).get('/files/evilfile01').expect(200);
     expect(res.headers['content-type']).toBe('application/octet-stream');
     expect(res.headers['content-disposition']).toMatch(/^attachment;/);

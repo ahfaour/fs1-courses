@@ -8,4 +8,6 @@ export const MaterialSchema = z.object({
   material_date: optionalDate,
   note: text(500, 'Note'),
   url: optionalHttpUrl,
+  // Checkbox: present ('1') when ticked, absent otherwise.
+  hidden: z.unknown().transform((v) => v === '1'),
 });

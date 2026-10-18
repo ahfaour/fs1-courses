@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { AppDeps } from '../../deps.js';
 import { renderError } from '../../lib/http.js';
 import { FILE_ID_RE } from '../../lib/ids.js';
+import { fileIsPublic } from '../materials/queries.js';
 import { getFile } from './queries.js';
 
 const INLINE_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/gif']);
@@ -30,6 +31,9 @@ export function filesRouter({ db, storage }: AppDeps): Router {
       if (!id || !FILE_ID_RE.test(id)) return notFound();
       const row = await getFile(db, id);
       if (!row) return notFound();
+      // Only the files of hidden materials: students get the same 404 as for a removed file.
+      const isPublic = await fileIsPublic(db, id);
+      if (!isPublic && !req.session.adminId) return notFound();
 
       const etag = `"${row.sha256}"`;
       if (req.get('if-none-match') === etag) return res.status(304).end();
@@ -49,7 +53,7 @@ export function filesRouter({ db, storage }: AppDeps): Router {
           row.original_name,
         ),
         'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': isPublic ? 'public, max-age=86400' : 'private, no-store',
         ETag: etag,
       });
       if (req.method === 'HEAD') {

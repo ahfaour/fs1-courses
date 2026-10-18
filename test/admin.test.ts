@@ -403,3 +403,88 @@ describe('TP section', () => {
     expect(page.indexOf('TP 1 – Shell')).toBeGreaterThan(tp);
   });
 });
+
+describe('hiding materials', () => {
+  const find = async (title: string) =>
+    (await listForCourse(ctx.db, 'os', { includeHidden: true })).find((m) => m.title === title)!;
+  const visibility = (id: string, hidden: string) =>
+    agent.post(`/admin/materials/${id}/visibility`).type('form').send({ _csrf: csrf, hidden });
+
+  it('hides a material from students everywhere until it is shown again', async () => {
+    await addMaterial('os', { title: 'Exam solutions', section: 'exam' })
+      .attach('file', PDF, 'solutions.pdf')
+      .expect(303);
+    const m = await find('Exam solutions');
+    const fileUrl = `/files/${m.file_id}/solutions.pdf`;
+    await request(ctx.app).get(fileUrl).expect(200);
+
+    await visibility(m.id, '1').expect(303).expect('location', '/courses/os#sec-exam');
+
+    // Students: not on the course page, in search, in the counts, or by its direct file link.
+    const page = (await request(ctx.app).get('/courses/os').expect(200)).text;
+    expect(page).not.toContain('Exam solutions');
+    expect(page).not.toContain('id="sec-exam"');
+    const search = (await request(ctx.app).get('/search?q=solutions').expect(200)).text;
+    expect(search).not.toContain('Exam solutions');
+    const course = await getCourse(ctx.db, 'os');
+    expect([course?.material_count, course?.hidden_count]).toEqual([0, 1]);
+    await request(ctx.app).get(fileUrl).expect(404);
+
+    // The instructor still sees it, marked, with a Show button, and can open the file.
+    const own = (await agent.get('/courses/os').expect(200)).text;
+    expect(own).toContain('Exam solutions');
+    expect(own).toContain('Hidden from students');
+    expect(own).toContain('name="hidden" value="0"');
+    expect((await agent.get('/search?q=solutions').expect(200)).text).toContain('Exam solutions');
+    await agent.get(fileUrl).expect(200).expect('cache-control', 'private, no-store');
+
+    await visibility(m.id, '0').expect(303);
+    expect((await request(ctx.app).get('/courses/os').expect(200)).text).toContain(
+      'Exam solutions',
+    );
+    await request(ctx.app).get(fileUrl).expect(200);
+  });
+
+  it('can be added hidden, and the edit form keeps or changes the setting', async () => {
+    await addMaterial('os', {
+      title: 'Draft chapter',
+      section: 'cours',
+      url: 'https://example.com/draft',
+      hidden: '1',
+    }).expect(303);
+    const m = await find('Draft chapter');
+    expect(m.hidden).toBe(true);
+    const form = (await agent.get(`/admin/materials/${m.id}/edit`).expect(200)).text;
+    expect(form).toMatch(/name="hidden" type="checkbox" value="1" checked/);
+
+    // Saved without the box ticked: visible again.
+    await agent
+      .post(`/admin/materials/${m.id}`)
+      .field('_csrf', csrf)
+      .field('title', 'Draft chapter')
+      .field('section', 'cours')
+      .field('url', 'https://example.com/draft')
+      .expect(303);
+    expect((await find('Draft chapter')).hidden).toBe(false);
+  });
+
+  it('needs the signed-in instructor and a valid form token', async () => {
+    await addMaterial('os', { title: 'Lab', section: 'tp', url: 'https://example.com/lab' });
+    const m = await find('Lab');
+    await request(ctx.app)
+      .post(`/admin/materials/${m.id}/visibility`)
+      .type('form')
+      .send({ hidden: '1' })
+      .expect(303)
+      .expect('location', '/admin/login');
+    await agent
+      .post(`/admin/materials/${m.id}/visibility`)
+      .type('form')
+      .send({ _csrf: 'wrong', hidden: '1' })
+      .expect(403);
+    expect((await find('Lab')).hidden).toBe(false);
+    expect((await request(ctx.app).get('/courses/os').expect(200)).text).not.toContain(
+      '/visibility',
+    );
+  });
+});

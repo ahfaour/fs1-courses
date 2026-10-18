@@ -22,6 +22,7 @@ import {
   getMaterial,
   insertMaterial,
   moveMaterial,
+  setMaterialHidden,
   updateMaterial,
 } from './queries.js';
 import { MaterialSchema } from './schema.js';
@@ -249,6 +250,18 @@ export function materialsAdminRouter(deps: AppDeps): Router {
       const direction = req.body?.direction;
       if (direction !== 'up' && direction !== 'down') return materialNotFound(res);
       const m = await moveMaterial(db, req.params.id ?? '', direction);
+      if (!m) return materialNotFound(res);
+      res.redirect(303, `/courses/${m.course_id}#sec-${m.section}`);
+    }),
+  );
+
+  // Hide / Show on the course page: a hidden material is left out of everything students see.
+  router.post(
+    '/materials/:id/visibility',
+    ah(async (req, res) => {
+      const hidden = req.body?.hidden;
+      if (hidden !== '1' && hidden !== '0') return materialNotFound(res);
+      const m = await setMaterialHidden(db, req.params.id ?? '', hidden === '1');
       if (!m) return materialNotFound(res);
       res.redirect(303, `/courses/${m.course_id}#sec-${m.section}`);
     }),

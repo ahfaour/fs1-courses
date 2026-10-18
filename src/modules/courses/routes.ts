@@ -49,7 +49,7 @@ export function coursesPublicRouter(deps: AppDeps): Router {
       const id = req.params.id ?? '';
       const course = COURSE_ID_RE.test(id) ? await getCourse(db, id) : undefined;
       if (!course) return courseNotFound(res);
-      const materials = await listForCourse(db, id);
+      const materials = await listForCourse(db, id, { includeHidden: !!req.session.adminId });
       const offered = new Set(sectionsFor(course.kind).map((s) => s.key));
       const groups = SECTIONS.map((s) => ({
         ...s,
@@ -74,7 +74,7 @@ export function coursesPublicRouter(deps: AppDeps): Router {
         pageTitle: q ? `Search: ${q}` : 'Search',
         currentPage: 'search',
         q,
-        hits: q ? await searchMaterials(db, q) : [],
+        hits: q ? await searchMaterials(db, q, { includeHidden: !!req.session.adminId }) : [],
         partial: req.query.partial === '1',
       });
     }),
@@ -179,7 +179,7 @@ export function coursesAdminRouter(deps: AppDeps): Router {
         pageTitle: 'Delete course',
         formPage: true,
         heading: `Delete “${course.name}”?`,
-        message: `This removes the course, its ${course.material_count} material(s) and its announcements. Students will no longer see them. This cannot be undone.`,
+        message: `This removes the course, its ${course.material_count + course.hidden_count} material(s) and its announcements. Students will no longer see them. This cannot be undone.`,
         action: `/admin/courses/${course.id}/delete`,
         cancel: `/courses/${course.id}`,
         label: 'Delete course',

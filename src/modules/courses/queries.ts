@@ -12,11 +12,16 @@ export interface Course {
   topics: string[];
   color_index: number;
   sort_order: number;
+  /** Materials students see. */
   material_count: number;
+  hidden_count: number;
   last_material_date: string | null;
 }
 
-export type CourseInput = Omit<Course, 'id' | 'material_count' | 'last_material_date'>;
+export type CourseInput = Omit<
+  Course,
+  'id' | 'material_count' | 'hidden_count' | 'last_material_date'
+>;
 
 interface CourseRow extends Omit<Course, 'topics'> {
   topics_json: string;
@@ -39,8 +44,9 @@ const toCourse = ({ topics_json, ...row }: CourseRow): Course => ({
 const SELECT = `
   SELECT c.id, c.name, c.code, c.level, c.semester, c.kind, c.description, c.topics_json,
          c.color_index, c.sort_order,
-         (SELECT COUNT(*)::int FROM materials m WHERE m.course_id = c.id) AS material_count,
-         (SELECT MAX(m.material_date) FROM materials m WHERE m.course_id = c.id) AS last_material_date
+         (SELECT COUNT(*)::int FROM materials m WHERE m.course_id = c.id AND NOT m.hidden) AS material_count,
+         (SELECT COUNT(*)::int FROM materials m WHERE m.course_id = c.id AND m.hidden) AS hidden_count,
+         (SELECT MAX(m.material_date) FROM materials m WHERE m.course_id = c.id AND NOT m.hidden) AS last_material_date
   FROM courses c`;
 
 /** Courses first, then programs, each by sort_order then name. */
@@ -132,7 +138,7 @@ export async function lastUpdated(db: Queryable): Promise<string | null> {
   const r = await one<{ t: string | null }>(
     db,
     `SELECT MAX(t) AS t FROM (
-       SELECT MAX(updated_at) AS t FROM materials
+       SELECT MAX(updated_at) AS t FROM materials WHERE NOT hidden
        UNION ALL SELECT MAX(created_at) FROM announcements
        UNION ALL SELECT MAX(updated_at) FROM courses
        UNION ALL SELECT MAX(updated_at) FROM profile) AS changes`,

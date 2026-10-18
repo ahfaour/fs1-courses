@@ -17,6 +17,7 @@ const link = (title: string, note = '', section: 'cours' | 'tp' = 'cours') => ({
   material_date: '2026-10-17',
   url: 'https://example.com/x',
   file_id: null,
+  hidden: false,
 });
 
 describe('public pages', () => {

@@ -8,6 +8,8 @@ past exams, readings and announcements, organised by course.
 - **The instructor** signs in at `/admin/login` to add, edit and delete courses, materials and
   announcements, upload files and edit the profile. Saved changes are live immediately.
   Within a section, the ↑ / ↓ buttons set the order students see (new materials go to the end).
+  **Hide** takes a material away from students (course page, search, counts and its file link)
+  until **Show** is clicked; the instructor still sees it, marked "Hidden from students".
 
 Server-rendered Express 4 + TypeScript app on Postgres. Pages work without JavaScript;
 `public/js/enhance.js` only adds live search, form dialogs, copy-to-clipboard and two-click delete.

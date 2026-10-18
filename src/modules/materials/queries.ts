@@ -13,6 +13,7 @@ export interface Material {
   file_id: string | null;
   original_name: string | null;
   mime_type: string | null;
+  hidden: boolean;
   updated_at: string;
 }
 
@@ -28,10 +29,14 @@ export interface MaterialInput {
   material_date: string | null;
   url: string | null;
   file_id: string | null;
+  hidden: boolean;
 }
 
 const COLUMNS = `m.id, m.course_id, m.section, m.title, m.note, m.material_date, m.url, m.file_id,
-  m.updated_at, f.original_name, f.mime_type`;
+  m.hidden, m.updated_at, f.original_name, f.mime_type`;
+
+/** Students see only visible materials; the signed-in instructor also sees hidden ones. */
+const VISIBLE = (includeHidden: boolean) => (includeHidden ? '' : 'AND NOT m.hidden');
 
 /** Search results across courses: newest first. */
 const BY_DATE = 'ORDER BY m.material_date DESC NULLS LAST, m.created_at DESC';
@@ -42,10 +47,14 @@ const BY_POSITION = 'ORDER BY m.position, m.created_at';
 const END_OF = (course: string, section: string) =>
   `(SELECT COALESCE(MAX(x.position), -1) + 1 FROM materials x WHERE x.course_id = ${course} AND x.section = ${section})`;
 
-export function listForCourse(db: Queryable, courseId: string): Promise<Material[]> {
+export function listForCourse(
+  db: Queryable,
+  courseId: string,
+  { includeHidden = false } = {},
+): Promise<Material[]> {
   return db.query<Material>(
     `SELECT ${COLUMNS} FROM materials m LEFT JOIN files f ON f.id = m.file_id
-     WHERE m.course_id = $1 ${BY_POSITION}`,
+     WHERE m.course_id = $1 ${VISIBLE(includeHidden)} ${BY_POSITION}`,
     [courseId],
   );
 }
@@ -62,14 +71,18 @@ export function getMaterial(db: Queryable, id: string): Promise<Material | undef
 export const escapeLike = (s: string): string => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 /** Case-insensitive match on title, note and course name. */
-export function searchMaterials(db: Queryable, q: string, limit = 200): Promise<SearchHit[]> {
+export function searchMaterials(
+  db: Queryable,
+  q: string,
+  { includeHidden = false, limit = 200 } = {},
+): Promise<SearchHit[]> {
   return db.query<SearchHit>(
     `SELECT ${COLUMNS}, c.name AS course_name, c.color_index
      FROM materials m
      JOIN courses c ON c.id = m.course_id
      LEFT JOIN files f ON f.id = m.file_id
-     WHERE m.title ILIKE $1 ESCAPE '\\' OR m.note ILIKE $1 ESCAPE '\\'
-        OR c.name ILIKE $1 ESCAPE '\\'
+     WHERE (m.title ILIKE $1 ESCAPE '\\' OR m.note ILIKE $1 ESCAPE '\\'
+        OR c.name ILIKE $1 ESCAPE '\\') ${VISIBLE(includeHidden)}
      ${BY_DATE}
      LIMIT $2`,
     [`%${escapeLike(q)}%`, limit],
@@ -84,20 +97,31 @@ export async function insertMaterial(
 ): Promise<void> {
   await db.run(
     `INSERT INTO materials
-       (id, course_id, section, title, note, material_date, url, file_id, created_at, updated_at, position)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, ${END_OF('$2', '$3')})`,
-    [id, courseId, m.section, m.title, m.note, m.material_date, m.url, m.file_id, nowIso()],
+       (id, course_id, section, title, note, material_date, url, file_id, hidden, created_at, updated_at, position)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, ${END_OF('$2', '$3')})`,
+    [
+      id,
+      courseId,
+      m.section,
+      m.title,
+      m.note,
+      m.material_date,
+      m.url,
+      m.file_id,
+      m.hidden,
+      nowIso(),
+    ],
   );
 }
 
 export async function updateMaterial(db: Queryable, id: string, m: MaterialInput): Promise<void> {
   await db.run(
     `UPDATE materials u SET section = $2, title = $3, note = $4,
-       material_date = $5, url = $6, file_id = $7, updated_at = $8,
+       material_date = $5, url = $6, file_id = $7, updated_at = $8, hidden = $9,
        -- moved to another section: goes to the end of it
        position = CASE WHEN u.section = $2 THEN u.position ELSE ${END_OF('u.course_id', '$2')} END
      WHERE id = $1`,
-    [id, m.section, m.title, m.note, m.material_date, m.url, m.file_id, nowIso()],
+    [id, m.section, m.title, m.note, m.material_date, m.url, m.file_id, nowIso(), m.hidden],
   );
 }
 
@@ -112,6 +136,26 @@ export function deleteMaterial(db: DB, id: string): Promise<string | null> {
     await q.run('DELETE FROM materials WHERE id = $1', [id]);
     return row?.file_id && (await deleteFileIfUnreferenced(q, row.file_id)) ? row.file_id : null;
   });
+}
+
+/** Hide / Show. Returns the material's course and section, or undefined if it does not exist. */
+export function setMaterialHidden(
+  db: Queryable,
+  id: string,
+  hidden: boolean,
+): Promise<{ course_id: string; section: string } | undefined> {
+  return one(
+    db,
+    'UPDATE materials SET hidden = $2, updated_at = $3 WHERE id = $1 RETURNING course_id, section',
+    [id, hidden, nowIso()],
+  );
+}
+
+/** True when students may download the file: a visible material links to it. */
+export async function fileIsPublic(db: Queryable, fileId: string): Promise<boolean> {
+  return !!(await one(db, 'SELECT 1 FROM materials WHERE file_id = $1 AND NOT hidden LIMIT 1', [
+    fileId,
+  ]));
 }
 
 /**

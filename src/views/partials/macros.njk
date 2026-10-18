@@ -4,11 +4,11 @@
 
 {# A material row: date, (course), title + type badge, note, Open, and admin Edit/Delete. #}
 {% macro matRow(m, opts) %}
-<li class="cc{{ opts.color }}" id="m-{{ m.id }}">
+<li class="cc{{ opts.color }}{% if m.hidden %} is-hidden{% endif %}" id="m-{{ m.id }}">
   <span class="d mono">{{ m.material_date | date }}</span>
   <div class="body">
     {% if opts.showCourse %}<a class="result-course" href="/courses/{{ m.course_id }}">{{ m.course_name }}</a>{% endif %}
-    <div class="t">{{ m.title }}<span class="src">{{ m | badge }}</span></div>
+    <div class="t">{{ m.title }}<span class="src">{{ m | badge }}</span>{% if m.hidden %}<span class="hidden-tag">Hidden from students</span>{% endif %}</div>
     {% if m.note %}<div class="n">{{ m.note }}</div>{% endif %}
   </div>
   <span class="act">
@@ -16,6 +16,7 @@
     {% if opts.isAdmin and not opts.showCourse %}
     {% if not opts.first %}{{ moveForm(m, "up", "↑", "Move up", opts.csrfToken) }}{% endif %}
     {% if not opts.last %}{{ moveForm(m, "down", "↓", "Move down", opts.csrfToken) }}{% endif %}
+    {{ visibilityForm(m, opts.csrfToken) }}
     <a class="btn small ghost" href="/admin/materials/{{ m.id }}/edit" data-dialog>Edit<span class="sr-only">: {{ m.title }}</span></a>
     {{ deleteForm("/admin/materials/" + m.id + "/delete", "Delete", opts.csrfToken, m.title) }}
     {% endif %}
@@ -29,6 +30,15 @@
   <input type="hidden" name="_csrf" value="{{ csrfToken }}">
   <input type="hidden" name="direction" value="{{ direction }}">
   <button class="btn small ghost move" type="submit" title="{{ label }}"><span aria-hidden="true">{{ arrow }}</span><span class="sr-only">{{ label }}: {{ m.title }}</span></button>
+</form>
+{% endmacro %}
+
+{# Hide / Show: a hidden material is only visible to the signed-in instructor. #}
+{% macro visibilityForm(m, csrfToken) %}
+<form method="post" action="/admin/materials/{{ m.id }}/visibility" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  <input type="hidden" name="hidden" value="{{ "0" if m.hidden else "1" }}">
+  <button class="btn small ghost" type="submit">{{ "Show" if m.hidden else "Hide" }}<span class="sr-only">: {{ m.title }}</span></button>
 </form>
 {% endmacro %}
 
