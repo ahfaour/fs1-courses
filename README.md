@@ -7,6 +7,7 @@ past exams, readings and announcements, organised by course.
 - **Students** need no account: browse courses, open or download materials, search, read announcements.
 - **The instructor** signs in at `/admin/login` to add, edit and delete courses, materials and
   announcements, upload files and edit the profile. Saved changes are live immediately.
+  Within a section, the ↑ / ↓ buttons set the order students see (new materials go to the end).
 
 Server-rendered Express 4 + TypeScript app on Postgres. Pages work without JavaScript;
 `public/js/enhance.js` only adds live search, form dialogs, copy-to-clipboard and two-click delete.

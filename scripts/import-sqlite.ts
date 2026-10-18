@@ -132,6 +132,11 @@ await db.tx(async (q) => {
         cols.map((c) => r[c] ?? null),
       );
   }
+  // The first version had no manual order: start from the order it showed (newest first).
+  await q.run(`UPDATE materials m SET position = r.n FROM (
+      SELECT id, ROW_NUMBER() OVER (PARTITION BY course_id, section
+        ORDER BY material_date DESC NULLS LAST, created_at DESC) - 1 AS n FROM materials) r
+    WHERE m.id = r.id`);
 });
 
 // 3. Bytes of the target's previous files that are no longer used.

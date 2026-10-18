@@ -296,3 +296,84 @@ describe('announcements', () => {
     expect(await listAnnouncements(ctx.db)).toHaveLength(0);
   });
 });
+
+describe('material order', () => {
+  const titles = async (section: string) =>
+    (await listForCourse(ctx.db, 'os')).filter((m) => m.section === section).map((m) => m.title);
+  const link = (title: string, section = 'cours') =>
+    addMaterial('os', { title, section, url: `https://example.com/${encodeURIComponent(title)}` });
+  const move = (id: string, direction: string) =>
+    agent.post(`/admin/materials/${id}/move`).type('form').send({ _csrf: csrf, direction });
+
+  it('adds new materials at the end of their section', async () => {
+    await link('Chapter 2').expect(303);
+    await link('Chapter 1').expect(303);
+    await link('Lab 1', 'tp').expect(303);
+    expect(await titles('cours')).toEqual(['Chapter 2', 'Chapter 1']);
+    expect(await titles('tp')).toEqual(['Lab 1']);
+  });
+
+  it('moves a material up or down within its section, as students then see it', async () => {
+    for (const t of ['Chapter 2', 'Chapter 1', 'Chapter 3']) await link(t).expect(303);
+    const id = (title: string) =>
+      listForCourse(ctx.db, 'os').then((ms) => ms.find((m) => m.title === title)!.id);
+
+    const res = await move(await id('Chapter 1'), 'up').expect(303);
+    expect(res.headers.location).toBe('/courses/os#sec-cours');
+    expect(await titles('cours')).toEqual(['Chapter 1', 'Chapter 2', 'Chapter 3']);
+
+    // Already first / last: nothing changes.
+    await move(await id('Chapter 1'), 'up').expect(303);
+    await move(await id('Chapter 3'), 'down').expect(303);
+    expect(await titles('cours')).toEqual(['Chapter 1', 'Chapter 2', 'Chapter 3']);
+
+    await move(await id('Chapter 2'), 'down').expect(303);
+    expect(await titles('cours')).toEqual(['Chapter 1', 'Chapter 3', 'Chapter 2']);
+
+    const page = (await request(ctx.app).get('/courses/os').expect(200)).text;
+    const at = (t: string) => page.indexOf(`>${t}<`);
+    expect(at('Chapter 1')).toBeLessThan(at('Chapter 3'));
+    expect(at('Chapter 3')).toBeLessThan(at('Chapter 2'));
+    expect(page).not.toContain('/move'); // students get no buttons
+  });
+
+  it('shows ↑ on all but the first and ↓ on all but the last', async () => {
+    for (const t of ['A', 'B', 'C']) await link(t).expect(303);
+    const page = (await agent.get('/courses/os').expect(200)).text;
+    expect(page.match(/name="direction" value="up"/g)).toHaveLength(2);
+    expect(page.match(/name="direction" value="down"/g)).toHaveLength(2);
+  });
+
+  it('a material moved to another section goes to the end of it', async () => {
+    await link('Lab 1', 'tp').expect(303);
+    await link('Lab 2', 'tp').expect(303);
+    await link('Chapter 1').expect(303);
+    const m = (await listForCourse(ctx.db, 'os')).find((x) => x.title === 'Chapter 1')!;
+    await agent
+      .post(`/admin/materials/${m.id}`)
+      .field('_csrf', csrf)
+      .field('title', 'Lab 0')
+      .field('section', 'tp')
+      .field('url', 'https://example.com/lab0')
+      .expect(303);
+    expect(await titles('tp')).toEqual(['Lab 1', 'Lab 2', 'Lab 0']);
+  });
+
+  it('rejects a bad direction, an unknown id and a missing CSRF token', async () => {
+    await link('Chapter 1').expect(303);
+    const [m] = await listForCourse(ctx.db, 'os');
+    await move(m!.id, 'sideways').expect(404);
+    await move('doesnotexist', 'up').expect(404);
+    await agent
+      .post(`/admin/materials/${m!.id}/move`)
+      .type('form')
+      .send({ direction: 'up' })
+      .expect(403);
+    await request(ctx.app)
+      .post(`/admin/materials/${m!.id}/move`)
+      .type('form')
+      .send({ direction: 'up' })
+      .expect(303)
+      .expect('location', '/admin/login');
+  });
+});

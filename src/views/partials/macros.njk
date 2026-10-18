@@ -14,11 +14,22 @@
   <span class="act">
     <a class="btn small" href="{{ m | href }}"{% if m | newTab %} target="_blank" rel="noopener noreferrer"{% endif %}>Open<span class="sr-only">: {{ m.title }}</span></a>
     {% if opts.isAdmin and not opts.showCourse %}
+    {% if not opts.first %}{{ moveForm(m, "up", "↑", "Move up", opts.csrfToken) }}{% endif %}
+    {% if not opts.last %}{{ moveForm(m, "down", "↓", "Move down", opts.csrfToken) }}{% endif %}
     <a class="btn small ghost" href="/admin/materials/{{ m.id }}/edit" data-dialog>Edit<span class="sr-only">: {{ m.title }}</span></a>
     {{ deleteForm("/admin/materials/" + m.id + "/delete", "Delete", opts.csrfToken, m.title) }}
     {% endif %}
   </span>
 </li>
+{% endmacro %}
+
+{# ↑ / ↓: reorder a material within its section. #}
+{% macro moveForm(m, direction, arrow, label, csrfToken) %}
+<form method="post" action="/admin/materials/{{ m.id }}/move" class="inline">
+  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+  <input type="hidden" name="direction" value="{{ direction }}">
+  <button class="btn small ghost move" type="submit" title="{{ label }}"><span aria-hidden="true">{{ arrow }}</span><span class="sr-only">{{ label }}: {{ m.title }}</span></button>
+</form>
 {% endmacro %}
 
 {# POST delete with a confirmation step: two clicks with JS, a confirm page without. #}

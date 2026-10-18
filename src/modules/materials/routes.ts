@@ -17,7 +17,13 @@ import {
   storeUpload,
   uploadSingle,
 } from '../files/upload.js';
-import { deleteMaterial, getMaterial, insertMaterial, updateMaterial } from './queries.js';
+import {
+  deleteMaterial,
+  getMaterial,
+  insertMaterial,
+  moveMaterial,
+  updateMaterial,
+} from './queries.js';
 import { MaterialSchema } from './schema.js';
 import { sectionsFor } from './sections.js';
 
@@ -233,6 +239,18 @@ export function materialsAdminRouter(deps: AppDeps): Router {
       const fileId = await deleteMaterial(db, m.id);
       await removeQuietly(storage, fileId);
       done(req, res, `/courses/${m.course_id}#sec-${m.section}`, 'Material deleted.');
+    }),
+  );
+
+  // ↑ / ↓ on the course page. Not a form page: no flash message, straight back to the section.
+  router.post(
+    '/materials/:id/move',
+    ah(async (req, res) => {
+      const direction = req.body?.direction;
+      if (direction !== 'up' && direction !== 'down') return materialNotFound(res);
+      const m = await moveMaterial(db, req.params.id ?? '', direction);
+      if (!m) return materialNotFound(res);
+      res.redirect(303, `/courses/${m.course_id}#sec-${m.section}`);
     }),
   );
 
