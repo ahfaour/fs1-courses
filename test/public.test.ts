@@ -43,7 +43,9 @@ describe('public pages', () => {
       expect(res.text).toContain(`data-theme-choice="${choice}"`);
     }
     const head = res.text.slice(0, res.text.indexOf('</head>'));
-    expect(head).toContain('<script src="/js/theme.js"></script>');
+    // Fingerprinted so browsers drop a cached copy after a deploy.
+    expect(head).toMatch(/<script src="\/js\/theme\.js\?v=[0-9a-f]{10}"><\/script>/);
+    expect(head).toMatch(/href="\/css\/site\.css\?v=[0-9a-f]{10}"/);
     const js = await request(ctx.app).get('/js/theme.js').expect(200);
     expect(js.text).toContain('localStorage');
   });

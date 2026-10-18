@@ -1,3 +1,6 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import session from 'express-session';
 import helmet from 'helmet';
@@ -28,6 +31,20 @@ interface MaterialLike {
   mime_type: string | null;
 }
 
+/**
+ * Short fingerprint of everything in public/. Appended to CSS and JS links (`asset()` in
+ * templates) so browsers fetch the new files after a deploy instead of a cached copy.
+ */
+export function assetVersion(dir = PUBLIC_DIR): string {
+  const hash = crypto.createHash('sha256');
+  const files = fs.readdirSync(dir, { recursive: true }).map(String).sort();
+  for (const f of files) {
+    const p = path.join(dir, f);
+    if (fs.statSync(p).isFile()) hash.update(f).update(fs.readFileSync(p));
+  }
+  return hash.digest('hex').slice(0, 10);
+}
+
 function configureViews(app: express.Express, dev: boolean) {
   const env = nunjucks.configure(VIEWS_DIR, { autoescape: true, express: app, noCache: dev });
   env.addFilter('date', formatDate);
@@ -43,6 +60,9 @@ function configureViews(app: express.Express, dev: boolean) {
   env.addFilter('newTab', (m: MaterialLike) => !m.file_id || INLINE_MIME.has(m.mime_type ?? ''));
   // Form <select>: stored values may be numbers, submitted ones strings, missing ones undefined.
   env.addGlobal('sameValue', (a: unknown, b: unknown) => String(a ?? '') === String(b ?? ''));
+  // In development files change without a restart, so fingerprint on every render.
+  const version = dev ? null : assetVersion();
+  env.addGlobal('asset', (url: string) => `${url}?v=${version ?? assetVersion()}`);
   app.set('view engine', 'njk');
 }
 
