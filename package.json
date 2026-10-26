@@ -20,7 +20,8 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "cleanup-orphans": "tsx scripts/cleanup-orphans.ts",
     "backup": "tsx scripts/backup.ts",
-    "import-sqlite": "tsx scripts/import-sqlite.ts"
+    "import-sqlite": "tsx scripts/import-sqlite.ts",
+    "copy-db": "tsx scripts/copy-db.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",
