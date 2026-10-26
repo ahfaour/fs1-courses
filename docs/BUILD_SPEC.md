@@ -182,7 +182,7 @@ Leave profile name and email empty; the owner fills them in. The topic lists are
 | GET | `/courses/:id` | Course page. 404 page if the id is unknown. Empty sections are hidden. If the course has no materials, show "Materials for this course will be posted here." |
 | GET | `/search?q=` | Results list: course name, date, title, type badge, Open button. Case-insensitive `LIKE` match on title, note and course name is enough. Escape `%` and `_` in the input. Cap `q` at 100 chars. |
 | GET | `/files/:id/:filename?` | Streams an uploaded file (§6). |
-| GET | `/healthz` | Returns `200 ok` after a trivial DB query. |
+| GET | `/healthz` | Returns `200 ok` without touching the database (liveness only), so the host's frequent health checks do not keep a scale-to-zero database awake. |
 
 ### Admin (session required, CSRF on every POST)
 

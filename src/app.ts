@@ -93,13 +93,11 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
-  app.get(
-    '/healthz',
-    ah(async (_req, res) => {
-      await db.query('SELECT 1');
-      res.type('text/plain').send('ok');
-    }),
-  );
+  // Liveness only: answers without touching the database. Render calls this every few seconds, and
+  // a query here would keep a scale-to-zero database (e.g. Neon) awake and burn its free quota.
+  app.get('/healthz', (_req, res) => {
+    res.type('text/plain').send('ok');
+  });
 
   app.use(
     express.static(PUBLIC_DIR, { index: false, maxAge: config.env === 'production' ? '1d' : 0 }),

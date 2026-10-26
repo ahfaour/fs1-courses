@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createApp } from '../src/app.js';
 import { insertAnnouncement } from '../src/modules/announcements/queries.js';
 import { insertMaterial } from '../src/modules/materials/queries.js';
 import { makeApp } from './helpers.js';
@@ -140,6 +141,15 @@ describe('public pages', () => {
 
   it('healthz answers ok', async () => {
     const res = await request(ctx.app).get('/healthz').expect(200);
+    expect(res.text).toBe('ok');
+  });
+
+  it('healthz does not touch the database', async () => {
+    // Render calls /healthz every few seconds; a query there keeps a scale-to-zero database awake.
+    const unreachable = () => Promise.reject(new Error('healthz must not query the database'));
+    const db = { ...ctx.db, query: unreachable, run: unreachable, exec: unreachable };
+    const app = createApp({ config: ctx.config, db, storage: ctx.storage });
+    const res = await request(app).get('/healthz').expect(200);
     expect(res.text).toBe('ok');
   });
 
