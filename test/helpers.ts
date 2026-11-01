@@ -49,6 +49,7 @@ export async function makeApp(overrides: Partial<Config> = {}, opts: { dbFiles?:
     maxUploadMb: 1,
     sessionSecret: 'test-secret-that-is-long-enough-1234567890',
     trustProxy: 0,
+    basePath: '',
     ...overrides,
   };
   const db = await freshDb();

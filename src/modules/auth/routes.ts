@@ -80,7 +80,7 @@ export function logoutRouter(): Router {
   router.post('/logout', (req, res, next) => {
     req.session.destroy((err) => {
       if (err) return next(err);
-      res.clearCookie(SESSION_COOKIE, { path: '/' });
+      res.clearCookie(SESSION_COOKIE, { path: (req.app.locals.base as string) || '/' });
       res.redirect(303, '/');
     });
   });

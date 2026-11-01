@@ -37,14 +37,15 @@
   var results = document.getElementById('results');
   if (input && results && window.fetch && window.DOMParser) {
     var homeSections = document.getElementById('home-sections');
-    var onSearchPage = location.pathname === '/search';
+    var searchUrl = document.documentElement.getAttribute('data-base') + '/search';
+    var onSearchPage = location.pathname === searchUrl;
     var timer = null;
     var controller = null;
 
     var run = function () {
       var q = input.value.trim().slice(0, 100);
       if (onSearchPage) {
-        history.replaceState(null, '', q ? '/search?q=' + encodeURIComponent(q) : '/search');
+        history.replaceState(null, '', q ? searchUrl + '?q=' + encodeURIComponent(q) : searchUrl);
       }
       if (controller) controller.abort();
       if (!q) {
@@ -53,7 +54,7 @@
         return;
       }
       controller = new AbortController();
-      fetch('/search?partial=1&q=' + encodeURIComponent(q), { signal: controller.signal })
+      fetch(searchUrl + '?partial=1&q=' + encodeURIComponent(q), { signal: controller.signal })
         .then(function (res) {
           return res.ok ? res.text() : Promise.reject(new Error('search failed'));
         })

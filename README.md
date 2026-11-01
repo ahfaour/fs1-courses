@@ -82,6 +82,7 @@ All settings come from environment variables (or `.env`, which is git-ignored).
 | `UPLOAD_DIR`           | `./data/uploads`  | Local uploads folder, used only without `DATABASE_URL` and `S3_BUCKET`.                                                                                                    |
 | `MAX_UPLOAD_MB`        | `50`              | Larger files are refused with a message suggesting a link instead.                                                                                                         |
 | `TRUST_PROXY`          | `0`               | Number of reverse proxies in front of the app: `1` behind nginx/Caddy, `3` on Render. Needed for `Secure` cookies and the login rate limit.                                |
+| `BASE_PATH`            | (empty)           | Sub-path the site is served under, e.g. `/courses`; empty at the root of the domain. Your proxy must pass the full path on.                                                |
 
 On Render (where the `RENDER` variable is set) the app refuses to start without `DATABASE_URL`,
 because the local disk is wiped on every restart and data would be lost silently.

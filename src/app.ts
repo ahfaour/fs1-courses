@@ -45,13 +45,14 @@ export function assetVersion(dir = PUBLIC_DIR): string {
   return hash.digest('hex').slice(0, 10);
 }
 
-function configureViews(app: express.Express, dev: boolean) {
+function configureViews(app: express.Express, dev: boolean, base: string) {
   const env = nunjucks.configure(VIEWS_DIR, { autoescape: true, express: app, noCache: dev });
+  env.addGlobal('base', base);
   env.addFilter('date', formatDate);
   env.addFilter('badge', typeBadge);
   env.addFilter('href', (m: MaterialLike) =>
     m.file_id
-      ? `/files/${m.file_id}/${encodeURIComponent(m.original_name ?? 'file')}`
+      ? `${base}/files/${m.file_id}/${encodeURIComponent(m.original_name ?? 'file')}`
       : isHttpUrl(m.url)
         ? m.url
         : '#',
@@ -62,7 +63,7 @@ function configureViews(app: express.Express, dev: boolean) {
   env.addGlobal('sameValue', (a: unknown, b: unknown) => String(a ?? '') === String(b ?? ''));
   // In development files change without a restart, so fingerprint on every render.
   const version = dev ? null : assetVersion();
-  env.addGlobal('asset', (url: string) => `${url}?v=${version ?? assetVersion()}`);
+  env.addGlobal('asset', (url: string) => `${base}${url}?v=${version ?? assetVersion()}`);
   app.set('view engine', 'njk');
 }
 
@@ -72,7 +73,23 @@ export function createApp(deps: AppDeps): express.Express {
   app.disable('x-powered-by');
   // Render: Cloudflare → Render edge → app, so TRUST_PROXY=3 makes req.ip the visitor's address.
   if (config.trustProxy) app.set('trust proxy', config.trustProxy);
-  configureViews(app, config.env !== 'production');
+  const base = config.basePath;
+  app.locals.base = base;
+  configureViews(app, config.env !== 'production', base);
+
+  // Under BASE_PATH the proxy passes the full path on. Routes keep working with paths from the
+  // root of the app: the prefix comes off here and goes back on in every redirect and template.
+  if (base) {
+    app.use((req, res, next) => {
+      const rest = req.url.slice(base.length);
+      if (req.url.startsWith(base) && /^($|[/?])/.test(rest)) {
+        req.url = rest.startsWith('/') ? rest : `/${rest}`;
+      }
+      const location = res.location.bind(res);
+      res.location = (url) => location(/^\/(?!\/)/.test(url) ? base + url : url);
+      next();
+    });
+  }
 
   app.use(
     helmet({
@@ -102,7 +119,11 @@ export function createApp(deps: AppDeps): express.Express {
   );
 
   app.use(
-    express.static(PUBLIC_DIR, { index: false, maxAge: config.env === 'production' ? '1d' : 0 }),
+    express.static(PUBLIC_DIR, {
+      index: false,
+      redirect: false, // would add a slash to the bare BASE_PATH, taking it for a folder
+      maxAge: config.env === 'production' ? '1d' : 0,
+    }),
   );
 
   app.use(
@@ -115,6 +136,7 @@ export function createApp(deps: AppDeps): express.Express {
       rolling: true, // idle timeout: every request pushes expiry 8 h out
       proxy: config.trustProxy > 0,
       cookie: {
+        path: base || '/',
         httpOnly: true,
         secure: config.env === 'production',
         sameSite: 'lax',

@@ -33,6 +33,18 @@ const proxyHops = z
     return z.NEVER;
   });
 
+/** '' or '/' → served at the root of the domain; 'a/b/' → '/a/b'. */
+const basePath = z
+  .string()
+  .optional()
+  .transform((v, ctx) => {
+    const s = (v ?? '').trim().replace(/^\/+|\/+$/g, '');
+    if (!s) return '';
+    if (/^[\w.~-]+(\/[\w.~-]+)*$/.test(s)) return `/${s}`;
+    ctx.addIssue({ code: 'custom', message: 'must be a path such as /courses' });
+    return z.NEVER;
+  });
+
 const optional = z
   .string()
   .optional()
@@ -47,6 +59,7 @@ const EnvSchema = z.object({
   MAX_UPLOAD_MB: z.coerce.number().positive().max(2048).default(50),
   SESSION_SECRET: z.string().optional(),
   TRUST_PROXY: proxyHops,
+  BASE_PATH: basePath,
   S3_BUCKET: optional,
   S3_ENDPOINT: optional,
   S3_REGION: optional,
@@ -78,6 +91,8 @@ export interface Config {
   sessionSecret: string;
   /** Number of reverse-proxy hops in front of the app (0 = none). */
   trustProxy: number;
+  /** Sub-path the site is served under, e.g. '/courses'; '' at the root of the domain. */
+  basePath: string;
 }
 
 /** Loads `.env` (if present) into process.env without overriding variables that are already set. */
@@ -131,5 +146,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     maxUploadMb: e.MAX_UPLOAD_MB,
     sessionSecret: secret,
     trustProxy: e.TRUST_PROXY,
+    basePath: e.BASE_PATH,
   };
 }

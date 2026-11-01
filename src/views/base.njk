@@ -1,5 +1,5 @@
 {% set siteName = profile.name or "Computer Science Courses" %}<!doctype html>
-<html lang="en">
+<html lang="en" data-base="{{ base }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -22,9 +22,9 @@
     {% else %}Signed in as {{ adminEmail }}. Saved changes are live immediately.{% endif %}
   </span>
   <span class="editbar-actions">
-    <a class="btn" href="/admin/profile" data-dialog>Edit name &amp; contact</a>
-    <a class="btn" href="/admin/announcements/new" data-dialog>+ Announcement</a>
-    <form method="post" action="/admin/logout" class="inline">
+    <a class="btn" href="{{ base }}/admin/profile" data-dialog>Edit name &amp; contact</a>
+    <a class="btn" href="{{ base }}/admin/announcements/new" data-dialog>+ Announcement</a>
+    <form method="post" action="{{ base }}/admin/logout" class="inline">
       <input type="hidden" name="_csrf" value="{{ csrfToken }}">
       <button class="btn" type="submit">Sign out</button>
     </form>
@@ -35,7 +35,7 @@
   <div class="who">
     {% if profile.affiliation %}<span class="label">{{ profile.affiliation }}</span>{% endif %}
     {% set nameTag = "h1" if currentPage == "home" else "p" %}
-    <{{ nameTag }} class="h1"><a href="/">{{ siteName }}</a></{{ nameTag }}>
+    <{{ nameTag }} class="h1"><a href="{{ base }}/">{{ siteName }}</a></{{ nameTag }}>
     {% if profile.title %}<p class="role">{{ profile.title }}</p>{% endif %}
   </div>
   <div class="side">
@@ -51,7 +51,7 @@
 {% block body %}{% endblock %}
 <footer><div class="wrap mono">
   <span>{{ profile.affiliation or "FS1 Computer Science" }}</span>
-  <span>Updated {{ (lastUpdated | date) or "—" }}{% if not isAdmin %} · <a href="/admin/login">Instructor sign-in</a>{% endif %}</span>
+  <span>Updated {{ (lastUpdated | date) or "—" }}{% if not isAdmin %} · <a href="{{ base }}/admin/login">Instructor sign-in</a>{% endif %}</span>
 </div></footer>
 </body>
 </html>

@@ -29,7 +29,9 @@ export function localPathFrom(referer: string | undefined, req: Request): string
   try {
     const u = new URL(referer);
     if (u.host !== req.get('host')) return undefined;
-    return safeReturnPath(u.pathname + u.search);
+    const base = req.app.locals.base as string;
+    const path = u.pathname.startsWith(base) ? u.pathname.slice(base.length) : u.pathname;
+    return safeReturnPath((path || '/') + u.search);
   } catch {
     return undefined;
   }

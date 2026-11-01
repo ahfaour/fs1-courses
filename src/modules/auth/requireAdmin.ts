@@ -8,7 +8,9 @@ import { localPathFrom, safeReturnPath } from '../../lib/http.js';
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (req.session.adminId) return next();
   const returnTo =
-    req.method === 'GET' ? safeReturnPath(req.originalUrl) : localPathFrom(req.get('referer'), req);
+    req.method === 'GET'
+      ? safeReturnPath(req.baseUrl + req.url)
+      : localPathFrom(req.get('referer'), req);
   if (returnTo) req.session.returnTo = returnTo;
   res.redirect(303, '/admin/login');
 }

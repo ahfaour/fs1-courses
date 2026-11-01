@@ -2,7 +2,7 @@
 {% block form %}
 {% from "partials/macros.njk" import field, select, formError %}
 <h1 class="form-h">{{ title }}</h1>
-<form method="post" action="{{ action }}" enctype="multipart/form-data">
+<form method="post" action="{{ base }}{{ action }}" enctype="multipart/form-data">
   <input type="hidden" name="_csrf" value="{{ csrfToken }}">
   {{ field("title", "Title", v, placeholder="e.g. Chapter 3 – CPU scheduling", required=true, maxlength=200) }}
   <div class="two">
@@ -20,6 +20,6 @@
     <span>Hidden from students<span class="hint" id="h-hidden">Only you see it until you click Show on the course page.</span></span>
   </label>
   {{ formError(flash) }}
-  <div class="actions"><a class="btn" href="/courses/{{ course.id }}" data-close>Cancel</a><button class="btn primary" type="submit">Save</button></div>
+  <div class="actions"><a class="btn" href="{{ base }}/courses/{{ course.id }}" data-close>Cancel</a><button class="btn primary" type="submit">Save</button></div>
 </form>
 {% endblock %}

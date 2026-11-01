@@ -1,5 +1,5 @@
 {% macro navItem(c, currentCourseId) %}
-<a href="/courses/{{ c.id }}" class="cc{{ c.color_index }}"{% if c.id == currentCourseId %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span><span>{{ c.name }}<small>{{ c.material_count }} item{{ "" if c.material_count == 1 else "s" }}{% if c.code %} · {{ c.code }}{% endif %}</small></span></a>
+<a href="{{ base }}/courses/{{ c.id }}" class="cc{{ c.color_index }}"{% if c.id == currentCourseId %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span><span>{{ c.name }}<small>{{ c.material_count }} item{{ "" if c.material_count == 1 else "s" }}{% if c.code %} · {{ c.code }}{% endif %}</small></span></a>
 {% endmacro %}
 
 {# A material row: date, (course), title + type badge, note, Open, and admin Edit/Delete. #}
@@ -7,7 +7,7 @@
 <li class="cc{{ opts.color }}{% if m.hidden %} is-hidden{% endif %}" id="m-{{ m.id }}">
   <span class="d mono">{{ m.material_date | date }}</span>
   <div class="body">
-    {% if opts.showCourse %}<a class="result-course" href="/courses/{{ m.course_id }}">{{ m.course_name }}</a>{% endif %}
+    {% if opts.showCourse %}<a class="result-course" href="{{ base }}/courses/{{ m.course_id }}">{{ m.course_name }}</a>{% endif %}
     <div class="t">{{ m.title }}<span class="src">{{ m | badge }}</span>{% if m.hidden %}<span class="hidden-tag">Hidden from students</span>{% endif %}</div>
     {% if m.note %}<div class="n">{{ m.note }}</div>{% endif %}
   </div>
@@ -17,7 +17,7 @@
     {% if not opts.first %}{{ moveForm(m, "up", "↑", "Move up", opts.csrfToken) }}{% endif %}
     {% if not opts.last %}{{ moveForm(m, "down", "↓", "Move down", opts.csrfToken) }}{% endif %}
     {{ visibilityForm(m, opts.csrfToken) }}
-    <a class="btn small ghost" href="/admin/materials/{{ m.id }}/edit" data-dialog>Edit<span class="sr-only">: {{ m.title }}</span></a>
+    <a class="btn small ghost" href="{{ base }}/admin/materials/{{ m.id }}/edit" data-dialog>Edit<span class="sr-only">: {{ m.title }}</span></a>
     {{ deleteForm("/admin/materials/" + m.id + "/delete", "Delete", opts.csrfToken, m.title) }}
     {% endif %}
   </span>
@@ -26,7 +26,7 @@
 
 {# ↑ / ↓: reorder a material within its section. #}
 {% macro moveForm(m, direction, arrow, label, csrfToken) %}
-<form method="post" action="/admin/materials/{{ m.id }}/move" class="inline">
+<form method="post" action="{{ base }}/admin/materials/{{ m.id }}/move" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrfToken }}">
   <input type="hidden" name="direction" value="{{ direction }}">
   <button class="btn small ghost move" type="submit" title="{{ label }}"><span aria-hidden="true">{{ arrow }}</span><span class="sr-only">{{ label }}: {{ m.title }}</span></button>
@@ -35,7 +35,7 @@
 
 {# Hide / Show: a hidden material is only visible to the signed-in instructor. #}
 {% macro visibilityForm(m, csrfToken) %}
-<form method="post" action="/admin/materials/{{ m.id }}/visibility" class="inline">
+<form method="post" action="{{ base }}/admin/materials/{{ m.id }}/visibility" class="inline">
   <input type="hidden" name="_csrf" value="{{ csrfToken }}">
   <input type="hidden" name="hidden" value="{{ "0" if m.hidden else "1" }}">
   <button class="btn small ghost" type="submit">{{ "Show" if m.hidden else "Hide" }}<span class="sr-only">: {{ m.title }}</span></button>
@@ -44,7 +44,7 @@
 
 {# POST delete with a confirmation step: two clicks with JS, a confirm page without. #}
 {% macro deleteForm(action, label, csrfToken, what) %}
-<form method="post" action="{{ action }}" class="inline" data-confirm>
+<form method="post" action="{{ base }}{{ action }}" class="inline" data-confirm>
   <input type="hidden" name="_csrf" value="{{ csrfToken }}">
   <input type="hidden" name="confirmed" value="">
   <button class="btn small ghost danger" type="submit">{{ label }}{% if what %}<span class="sr-only">: {{ what }}</span>{% endif %}</button>
@@ -52,7 +52,7 @@
 {% endmacro %}
 
 {% macro searchForm(q) %}
-<form class="search" action="/search" method="get" role="search">
+<form class="search" action="{{ base }}/search" method="get" role="search">
   <label class="label" for="q">Search</label>
   <input id="q" name="q" type="search" placeholder="Find slides, labs, exams…" value="{{ q }}" maxlength="100" autocomplete="off" data-live-search>
   <button class="btn small" type="submit">Search</button>
