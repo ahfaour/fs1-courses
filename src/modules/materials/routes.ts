@@ -161,7 +161,7 @@ export function materialsAdminRouter(deps: AppDeps): Router {
           file_id: file?.id ?? null,
         }),
       );
-      if (ok) done(req, res, `/courses/${course.id}#sec-${data.section}`, 'Material added.');
+      if (ok) done(req, res, `/courses/${course.id}/${data.section}`, 'Material added.');
     }),
   );
 
@@ -210,7 +210,7 @@ export function materialsAdminRouter(deps: AppDeps): Router {
       });
       if (!ok) return;
       if (oldFileGone) await removeQuietly(storage, m.file_id);
-      done(req, res, `/courses/${course.id}#sec-${data.section}`, 'Material saved.');
+      done(req, res, `/courses/${course.id}/${data.section}`, 'Material saved.');
     }),
   );
 
@@ -239,7 +239,7 @@ export function materialsAdminRouter(deps: AppDeps): Router {
       if (req.body?.confirmed !== '1') return res.redirect(303, `/admin/materials/${m.id}/delete`);
       const fileId = await deleteMaterial(db, m.id);
       await removeQuietly(storage, fileId);
-      done(req, res, `/courses/${m.course_id}#sec-${m.section}`, 'Material deleted.');
+      done(req, res, `/courses/${m.course_id}/${m.section}`, 'Material deleted.');
     }),
   );
 
@@ -251,7 +251,7 @@ export function materialsAdminRouter(deps: AppDeps): Router {
       if (direction !== 'up' && direction !== 'down') return materialNotFound(res);
       const m = await moveMaterial(db, req.params.id ?? '', direction);
       if (!m) return materialNotFound(res);
-      res.redirect(303, `/courses/${m.course_id}#sec-${m.section}`);
+      res.redirect(303, `/courses/${m.course_id}/${m.section}`);
     }),
   );
 
@@ -263,7 +263,7 @@ export function materialsAdminRouter(deps: AppDeps): Router {
       if (hidden !== '1' && hidden !== '0') return materialNotFound(res);
       const m = await setMaterialHidden(db, req.params.id ?? '', hidden === '1');
       if (!m) return materialNotFound(res);
-      res.redirect(303, `/courses/${m.course_id}#sec-${m.section}`);
+      res.redirect(303, `/courses/${m.course_id}/${m.section}`);
     }),
   );
 

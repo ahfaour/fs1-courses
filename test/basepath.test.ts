@@ -139,7 +139,7 @@ describe('served under BASE_PATH', () => {
       .field('section', 'tp')
       .attach('file', PDF, 'slides.pdf')
       .expect(303);
-    expect(added.headers.location).toBe(`${BASE}/courses/os#sec-tp`);
+    expect(added.headers.location).toBe(`${BASE}/courses/os/tp`);
 
     const page = await request(ctx.app).get(`${BASE}/courses/os`).expect(200);
     const link = /href="([^"]*\/files\/[^"]+)"/.exec(page.text)?.[1] as string;

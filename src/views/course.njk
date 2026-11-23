@@ -1,4 +1,16 @@
 {% extends "layout.njk" %}
+{% block sidebar %}
+{% set courseUrl = base + "/courses/" + course.id %}
+<nav class="index course-nav cc{{ course.color_index }}" aria-label="Sections of {{ course.name }}">
+  <a class="back" href="{{ base }}/"><span class="arr" aria-hidden="true">←</span><span>All courses</span></a>
+  <div class="sep"></div>
+  <span class="label">{{ course.code or course.name }}</span>
+  <a href="{{ courseUrl }}"{% if not currentSection %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span><span>All materials<small>{{ materialCount }} item{{ "" if materialCount == 1 else "s" }}</small></span></a>
+  {% for g in navSections %}
+  <a href="{{ courseUrl }}/{{ g.key }}"{% if g.key == currentSection %} aria-current="page"{% endif %}><span class="dot" aria-hidden="true"></span><span>{{ g.label }}<small>{{ g.items.length }} item{{ "" if g.items.length == 1 else "s" }}{% if g.fr %} · {{ g.fr }}{% endif %}</small></span></a>
+  {% endfor %}
+</nav>
+{% endblock %}
 {% block main %}
 {% from "partials/macros.njk" import matRow, deleteForm %}
 {% set noun = "program" if course.kind == "program" else "course" %}

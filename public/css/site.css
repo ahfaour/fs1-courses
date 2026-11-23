@@ -375,6 +375,18 @@ nav.index .add-course {
   justify-self: start;
   margin-top: 8px;
 }
+/* course page: the sidebar lists the course's sections */
+nav.index .arr {
+  color: var(--muted);
+  font-family: var(--f-mono);
+  line-height: 1;
+}
+nav.index.course-nav .back {
+  color: var(--muted);
+}
+nav.index.course-nav .back:hover {
+  color: var(--ink);
+}
 main {
   min-width: 0;
 }

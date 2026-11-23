@@ -43,23 +43,40 @@ export function coursesPublicRouter(deps: AppDeps): Router {
     ah((req, res) => renderOverview(deps, req, res)),
   );
 
+  // `/courses/:id` shows every section; `/courses/:id/:section` shows only that one.
+  // The sidebar lists the course's sections (only non-empty ones for students).
   router.get(
-    '/courses/:id',
+    ['/courses/:id', '/courses/:id/:section'],
     ah(async (req, res) => {
       const id = req.params.id ?? '';
       const course = COURSE_ID_RE.test(id) ? await getCourse(db, id) : undefined;
       if (!course) return courseNotFound(res);
-      const materials = await listForCourse(db, id, { includeHidden: !!req.session.adminId });
+      const isAdmin = !!req.session.adminId;
+      const materials = await listForCourse(db, id, { includeHidden: isAdmin });
       const offered = new Set(sectionsFor(course.kind).map((s) => s.key));
       const groups = SECTIONS.map((s) => ({
         ...s,
         items: materials.filter((m) => m.section === s.key),
       })).filter((g) => offered.has(g.key) || g.items.length > 0);
+      const navSections = groups.filter((g) => isAdmin || g.items.length > 0);
+
+      const sectionKey = req.params.section;
+      const current = sectionKey ? navSections.find((g) => g.key === sectionKey) : undefined;
+      if (sectionKey && !current) {
+        return renderError(
+          res,
+          404,
+          'Section not found',
+          'This course has no such section. Pick one from the course menu.',
+        );
+      }
       res.render('course.njk', {
-        pageTitle: course.name,
+        pageTitle: current ? `${current.label} · ${course.name}` : course.name,
         currentCourseId: course.id,
         course,
-        groups,
+        groups: current ? [current] : groups,
+        navSections,
+        currentSection: current?.key ?? null,
         materialCount: materials.length,
       });
     }),

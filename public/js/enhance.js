@@ -3,6 +3,13 @@
 (function () {
   'use strict';
 
+  /* ---------- sidebar on phones: a sideways strip, scrolled to the current page ---------- */
+  var nav = document.querySelector('nav.index');
+  var current = nav && nav.querySelector('[aria-current="page"]');
+  if (current && nav.scrollWidth > nav.clientWidth) {
+    nav.scrollLeft = current.offsetLeft - nav.offsetLeft - 16;
+  }
+
   /* ---------- copy email ---------- */
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
     var target = document.querySelector(btn.getAttribute('data-copy'));

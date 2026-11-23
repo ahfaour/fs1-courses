@@ -87,6 +87,28 @@ describe('public pages', () => {
     expect(res.text).toContain('rel="noopener noreferrer"');
   });
 
+  it('lists the course sections in the sidebar and shows one section per page', async () => {
+    await insertMaterial(ctx.db, 'm1', 'os', link('Lab 1: fork()', '', 'tp'));
+    await insertMaterial(ctx.db, 'm2', 'os', link('Lecture 1: processes', '', 'cours'));
+
+    const all = (await request(ctx.app).get('/courses/os').expect(200)).text;
+    expect(all).toContain('aria-label="Sections of Operating Systems"');
+    expect(all).toContain('href="/courses/os/tp"');
+    expect(all).toContain('href="/courses/os/cours"');
+    expect(all).not.toContain('href="/courses/os/td"'); // empty sections are not offered to students
+    expect(all).toContain('Lab 1: fork()');
+    expect(all).toContain('Lecture 1: processes');
+
+    const labs = (await request(ctx.app).get('/courses/os/tp').expect(200)).text;
+    expect(labs).toContain('Lab 1: fork()');
+    expect(labs).not.toContain('Lecture 1: processes');
+    expect(labs).toMatch(/href="\/courses\/os\/tp" aria-current="page"/);
+    expect(labs).toContain('<title>Labs · Operating Systems');
+
+    await request(ctx.app).get('/courses/os/td').expect(404);
+    await request(ctx.app).get('/courses/os/nope').expect(404);
+  });
+
   it('search finds a material by a word in its note', async () => {
     await insertMaterial(
       ctx.db,

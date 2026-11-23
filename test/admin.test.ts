@@ -181,7 +181,7 @@ describe('materials', () => {
     })
       .attach('file', PDF, 'lab3.pdf')
       .expect(303);
-    expect(res.headers.location).toBe('/courses/os#sec-tp');
+    expect(res.headers.location).toBe('/courses/os/tp');
     const page = await request(ctx.app).get('/courses/os').expect(200);
     expect(page.text).toContain('Lab 3 – Threads');
     expect(page.text).toContain('17 Oct 2026');
@@ -319,7 +319,7 @@ describe('material order', () => {
       listForCourse(ctx.db, 'os').then((ms) => ms.find((m) => m.title === title)!.id);
 
     const res = await move(await id('Chapter 1'), 'up').expect(303);
-    expect(res.headers.location).toBe('/courses/os#sec-cours');
+    expect(res.headers.location).toBe('/courses/os/cours');
     expect(await titles('cours')).toEqual(['Chapter 1', 'Chapter 2', 'Chapter 3']);
 
     // Already first / last: nothing changes.
@@ -388,7 +388,7 @@ describe('TP section', () => {
       url: 'https://example.com/tp1',
     })
       .expect(303)
-      .expect('location', '/courses/os#sec-tp2');
+      .expect('location', '/courses/os/tp2');
     await addMaterial('os', {
       title: 'Lab 1',
       section: 'tp',
@@ -418,12 +418,14 @@ describe('hiding materials', () => {
     const fileUrl = `/files/${m.file_id}/solutions.pdf`;
     await request(ctx.app).get(fileUrl).expect(200);
 
-    await visibility(m.id, '1').expect(303).expect('location', '/courses/os#sec-exam');
+    await visibility(m.id, '1').expect(303).expect('location', '/courses/os/exam');
 
     // Students: not on the course page, in search, in the counts, or by its direct file link.
     const page = (await request(ctx.app).get('/courses/os').expect(200)).text;
     expect(page).not.toContain('Exam solutions');
     expect(page).not.toContain('id="sec-exam"');
+    expect(page).not.toContain('href="/courses/os/exam"');
+    await request(ctx.app).get('/courses/os/exam').expect(404);
     const search = (await request(ctx.app).get('/search?q=solutions').expect(200)).text;
     expect(search).not.toContain('Exam solutions');
     const course = await getCourse(ctx.db, 'os');
