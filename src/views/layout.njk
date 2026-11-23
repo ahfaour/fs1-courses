@@ -1,7 +1,7 @@
 {% extends "base.njk" %}
 {% block body %}
 {% from "partials/macros.njk" import navItem %}
-<div class="wrap layout">
+<div class="wrap layout{% block layoutClass %}{% endblock %}">
   {% block sidebar %}
   <nav class="index" aria-label="Courses">
     <span class="label">Index</span>

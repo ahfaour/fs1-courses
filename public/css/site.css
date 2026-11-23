@@ -4,7 +4,7 @@
 :root {
   --paper: #f1f3f6;
   --surface: #ffffff;
-  --side: #e2e8f0; /* sidebar panel, distinct from the page */
+  --side: #d3dce8; /* sidebar panel, distinct from the page */
   --ink: #151c27;
   --muted: #586273;
   --line: #d8dde5;
@@ -28,7 +28,7 @@
   :root:not([data-theme='light']) {
     --paper: #0f141b;
     --surface: #161d27;
-    --side: #1c2531;
+    --side: #243042;
     --ink: #e5e9ef;
     --muted: #98a2b1;
     --line: #29323f;
@@ -48,7 +48,7 @@
 :root[data-theme='dark'] {
   --paper: #0f141b;
   --surface: #161d27;
-  --side: #1c2531;
+  --side: #243042;
   --ink: #e5e9ef;
   --muted: #98a2b1;
   --line: #29323f;
@@ -322,26 +322,41 @@ form.inline {
 
 /* layout */
 .layout {
+  --side-bg: var(--side);
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 40px;
   padding-block: 32px 64px;
 }
+/* On a course page the sidebar takes the course's colour. */
+.layout.course-layout {
+  --side-bg: color-mix(in srgb, var(--cc) 32%, var(--surface));
+}
+/* The sidebar panel: a column as tall as the page content. The links sit on top of it and stay
+   in view while scrolling (sticky), so the panel is drawn separately. */
+.layout::before {
+  content: '';
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--side-bg);
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, var(--side-bg));
+  border-radius: 12px;
+}
+.layout > main {
+  grid-column: 2;
+  grid-row: 1;
+}
 nav.index {
+  /* muted text darkened (or lightened) against the stronger panel colour, for contrast */
+  --muted: color-mix(in srgb, var(--ink) 74%, var(--side-bg));
+  grid-column: 1;
+  grid-row: 1;
   position: sticky;
   top: calc(env(safe-area-inset-top, 0px) + 20px);
   align-self: start;
   display: grid;
   gap: 4px;
   padding: 14px 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--side);
-}
-/* On a course page the sidebar takes a tint of the course's colour. */
-nav.index.course-nav {
-  background: color-mix(in srgb, var(--cc) 18%, var(--surface));
-  border-color: color-mix(in srgb, var(--cc) 30%, var(--line));
 }
 nav.index .label {
   margin: 0 0 6px 10px;
@@ -830,13 +845,24 @@ footer a {
     gap: 20px;
     padding-block: 18px 48px;
   }
+  .layout::before {
+    display: none;
+  }
+  .layout > main {
+    grid-column: auto;
+    grid-row: auto;
+  }
   nav.index {
+    grid-column: auto;
+    grid-row: auto;
     position: static;
     display: flex;
     overflow-x: auto;
     gap: 6px;
     padding: 8px;
+    border: 1px solid color-mix(in srgb, var(--ink) 12%, var(--side-bg));
     border-radius: 10px;
+    background: var(--side-bg);
   }
   nav.index .label,
   nav.index .sep {

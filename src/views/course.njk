@@ -1,4 +1,5 @@
 {% extends "layout.njk" %}
+{% block layoutClass %} course-layout cc{{ course.color_index }}{% endblock %}
 {% block sidebar %}
 {% set courseUrl = base + "/courses/" + course.id %}
 <nav class="index course-nav cc{{ course.color_index }}" aria-label="Sections of {{ course.name }}">
