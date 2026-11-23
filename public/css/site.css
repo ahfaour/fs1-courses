@@ -4,6 +4,7 @@
 :root {
   --paper: #f1f3f6;
   --surface: #ffffff;
+  --side: #e2e8f0; /* sidebar panel, distinct from the page */
   --ink: #151c27;
   --muted: #586273;
   --line: #d8dde5;
@@ -27,6 +28,7 @@
   :root:not([data-theme='light']) {
     --paper: #0f141b;
     --surface: #161d27;
+    --side: #1c2531;
     --ink: #e5e9ef;
     --muted: #98a2b1;
     --line: #29323f;
@@ -46,6 +48,7 @@
 :root[data-theme='dark'] {
   --paper: #0f141b;
   --surface: #161d27;
+  --side: #1c2531;
   --ink: #e5e9ef;
   --muted: #98a2b1;
   --line: #29323f;
@@ -330,6 +333,15 @@ nav.index {
   align-self: start;
   display: grid;
   gap: 4px;
+  padding: 14px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--side);
+}
+/* On a course page the sidebar takes a tint of the course's colour. */
+nav.index.course-nav {
+  background: color-mix(in srgb, var(--cc) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--cc) 30%, var(--line));
 }
 nav.index .label {
   margin: 0 0 6px 10px;
@@ -368,7 +380,7 @@ nav.index small {
 }
 nav.index .sep {
   height: 1px;
-  background: var(--line);
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
   margin: 10px;
 }
 nav.index .add-course {
@@ -823,7 +835,8 @@ footer a {
     display: flex;
     overflow-x: auto;
     gap: 6px;
-    padding-bottom: 6px;
+    padding: 8px;
+    border-radius: 10px;
   }
   nav.index .label,
   nav.index .sep {

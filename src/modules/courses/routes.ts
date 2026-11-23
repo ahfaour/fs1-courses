@@ -43,7 +43,7 @@ export function coursesPublicRouter(deps: AppDeps): Router {
     ah((req, res) => renderOverview(deps, req, res)),
   );
 
-  // `/courses/:id` shows every section; `/courses/:id/:section` shows only that one.
+  // One section per page: `/courses/:id/:section`, and `/courses/:id` opens the first one.
   // The sidebar lists the course's sections (only non-empty ones for students).
   router.get(
     ['/courses/:id', '/courses/:id/:section'],
@@ -61,7 +61,7 @@ export function coursesPublicRouter(deps: AppDeps): Router {
       const navSections = groups.filter((g) => isAdmin || g.items.length > 0);
 
       const sectionKey = req.params.section;
-      const current = sectionKey ? navSections.find((g) => g.key === sectionKey) : undefined;
+      const current = sectionKey ? navSections.find((g) => g.key === sectionKey) : navSections[0];
       if (sectionKey && !current) {
         return renderError(
           res,
@@ -71,10 +71,10 @@ export function coursesPublicRouter(deps: AppDeps): Router {
         );
       }
       res.render('course.njk', {
-        pageTitle: current ? `${current.label} · ${course.name}` : course.name,
+        pageTitle: sectionKey && current ? `${current.label} · ${course.name}` : course.name,
         currentCourseId: course.id,
         course,
-        groups: current ? [current] : groups,
+        groups: current ? [current] : [],
         navSections,
         currentSection: current?.key ?? null,
         materialCount: materials.length,

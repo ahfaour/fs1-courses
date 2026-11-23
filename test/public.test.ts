@@ -71,7 +71,7 @@ describe('public pages', () => {
     expect(os.text).toContain('Operating Systems');
     expect(os.text).toContain('CPU scheduling');
     expect(os.text).toContain('Materials for this course will be posted here.');
-    expect(os.text).toContain('aria-current="page"');
+    expect(os.text).toContain('aria-label="Sections of Operating Systems"');
 
     const missing = await request(ctx.app).get('/courses/does-not-exist').expect(404);
     expect(missing.text).toContain('Course not found');
@@ -91,13 +91,15 @@ describe('public pages', () => {
     await insertMaterial(ctx.db, 'm1', 'os', link('Lab 1: fork()', '', 'tp'));
     await insertMaterial(ctx.db, 'm2', 'os', link('Lecture 1: processes', '', 'cours'));
 
-    const all = (await request(ctx.app).get('/courses/os').expect(200)).text;
-    expect(all).toContain('aria-label="Sections of Operating Systems"');
-    expect(all).toContain('href="/courses/os/tp"');
-    expect(all).toContain('href="/courses/os/cours"');
-    expect(all).not.toContain('href="/courses/os/td"'); // empty sections are not offered to students
-    expect(all).toContain('Lab 1: fork()');
-    expect(all).toContain('Lecture 1: processes');
+    // The course page opens its first section; there is no "all materials" view.
+    const first = (await request(ctx.app).get('/courses/os').expect(200)).text;
+    expect(first).toContain('aria-label="Sections of Operating Systems"');
+    expect(first).toContain('href="/courses/os/tp"');
+    expect(first).not.toContain('href="/courses/os/td"'); // empty sections are not offered to students
+    expect(first).not.toContain('All materials');
+    expect(first).toMatch(/href="\/courses\/os\/cours" aria-current="page"/);
+    expect(first).toContain('Lecture 1: processes');
+    expect(first).not.toContain('Lab 1: fork()');
 
     const labs = (await request(ctx.app).get('/courses/os/tp').expect(200)).text;
     expect(labs).toContain('Lab 1: fork()');

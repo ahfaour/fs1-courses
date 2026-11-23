@@ -395,12 +395,15 @@ describe('TP section', () => {
       url: 'https://example.com/lab1',
     }).expect(303);
     const page = (await request(ctx.app).get('/courses/os').expect(200)).text;
-    const labs = page.indexOf('id="sec-tp"');
-    const tp = page.indexOf('id="sec-tp2"');
+    const labs = page.indexOf('href="/courses/os/tp"');
+    const tp = page.indexOf('href="/courses/os/tp2"');
     expect(labs).toBeGreaterThan(-1);
     expect(tp).toBeGreaterThan(labs);
-    expect(page.indexOf('Lab 1')).toBeLessThan(tp);
-    expect(page.indexOf('TP 1 – Shell')).toBeGreaterThan(tp);
+    const labsPage = (await request(ctx.app).get('/courses/os/tp').expect(200)).text;
+    expect(labsPage).toContain('Lab 1');
+    expect(labsPage).not.toContain('TP 1 – Shell');
+    const tpPage = (await request(ctx.app).get('/courses/os/tp2').expect(200)).text;
+    expect(tpPage).toContain('TP 1 – Shell');
   });
 });
 
@@ -433,7 +436,7 @@ describe('hiding materials', () => {
     await request(ctx.app).get(fileUrl).expect(404);
 
     // The instructor still sees it, marked, with a Show button, and can open the file.
-    const own = (await agent.get('/courses/os').expect(200)).text;
+    const own = (await agent.get('/courses/os/exam').expect(200)).text;
     expect(own).toContain('Exam solutions');
     expect(own).toContain('Hidden from students');
     expect(own).toContain('name="hidden" value="0"');
